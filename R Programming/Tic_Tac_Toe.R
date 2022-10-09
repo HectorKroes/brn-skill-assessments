@@ -1,3 +1,4 @@
+#Symbol chooser functions
 player_symbol_chooser <- function() {
   symbol <- NA
   repeat {
@@ -20,6 +21,7 @@ pc_symbol_chooser <- function(player_symbol) {
   }
 }
 
+#Round declaration function 
 round_enunciator <- function(round_num) {
   central_line <- paste(strrep("#", 7), "Round", round_num, strrep("#", 8))
   cat("\n", strrep("#", 24), central_line, strrep("#", 24), "", sep = "\n")
@@ -27,6 +29,7 @@ round_enunciator <- function(round_num) {
   return(round_num)
 }
 
+#Board setup and display functions
 board_setup <- function() {
   board <- matrix(NA, nrow = 3, ncol = 3)
   return(board)
@@ -40,6 +43,7 @@ display_board <- function(board) {
   cat(separator)
 }
 
+#Coordinate validation functions
 is_coord_valid <- function(coord) {
   if (coord %in% c(1, 2, 3)) {
     return(TRUE)
@@ -56,6 +60,7 @@ is_coord_unnocupied <- function(board, row, column) {
   }
 }
 
+#Player move prompt function
 player_move <- function(board, player_symbol) {
   prompt <- TRUE
   cat("\nPlayer", player_symbol, "turn\n")
@@ -96,6 +101,7 @@ player_move <- function(board, player_symbol) {
   return(board)
 }
 
+#PC move prompt functions
 check_line_for_opportunity <- function(line) {
   coord <- NA
   if (NA %in% line) {
@@ -157,6 +163,7 @@ pc_move <- function(board, pc_symbol) {
   return(board)
 }
 
+#Win conditions checker functions
 check_line_for_win <- function(line, player_symbol) {
   if (!(NA %in% line)) {
     if (length(unique(line)) == 1) {
@@ -209,6 +216,7 @@ if (interactive()) {
   con <- "stdin"
 }
 
+#Main function
 game <- function() {
   player_symbol <- player_symbol_chooser()
   pc_symbol <- pc_symbol_chooser(player_symbol)
