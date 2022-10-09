@@ -1,6 +1,8 @@
 library(tidyverse)
 library(ggplot2)
 library(plotly)
+library(countrycode)
+library(kableExtra)
 
 #Read in the gapminder_clean.csv data as a tibble using read_csv.
 
@@ -32,13 +34,13 @@ cor_test_res
 
 #In what year is the correlation between 'CO2 emissions (metric tons per capita)' and gdpPercap the strongest?
 
-highestcor <- data %>%
+highest_cor <- data %>%
   select(Country.Name,Year,gdpPercap,co2_emissions) %>%
   drop_na() %>%
   group_by(Year) %>% 
   summarize(cor = cor(co2_emissions, gdpPercap)) %>%
   top_n(1,cor)
-highestcor
+highest_cor
 
 #Create an interactive scatter plot comparing 'CO2 emissions (metric tons per capita)' and gdpPercap, where the point size is determined by pop (population) and the color is determined by the continent
 
@@ -69,7 +71,7 @@ data_as_eu_after_90 <- data %>%
   select(Country.Name,Year,imports,continent) %>%
   filter(continent %in% relevant_continents, Year>1990)
 
-europe_asia_imports_t_test <- t.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent=='Europe'],data_as_eu_after_90$Imports.of.goods.and.services....of.GDP.[data_as_eu_after_90$continent=='Asia'])
+europe_asia_imports_t_test <- t.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent=='Europe'],data_as_eu_after_90$imports[data_as_eu_after_90$continent=='Asia'])
 europe_asia_imports_t_test
 
 #What is the country (or countries) that has the highest 'Population density (people per sq. km of land area)' across all years?
@@ -95,7 +97,32 @@ pop_density_ranking <- pop_density_ranking %>%
   sort(decreasing = TRUE) %>%
   replace(pop_density_ranking==0, NA)
 
-pop_density_ranking
+pd_country_codes <- countrycode(names(pop_density_ranking), origin = 'country.name', destination = 'iso3c')
+pop_dens_df <- data.frame(country=names(pop_density_ranking), rank=unname(pop_density_ranking), code=pd_country_codes)
+
+geo_config <- list(
+  scope = 'world',
+  showocean = TRUE,
+  oceancolor = toRGB("LightBlue"),
+  showland = TRUE,
+  landcolor = toRGB("#e5ecf6"))
+
+density_choropleth <- plot_ly(pop_dens_df, type='choropleth', locations=pop_dens_df$code, z=pop_dens_df$rank, text=pop_dens_df$country, colors='Reds') %>%
+  layout(title = 'Population density ranking dominance in the 1962-2007 period)', geo = geo_config) %>%
+  colorbar(title = "Arbitrary units")
+
+density_choropleth
+
+g<-data.frame(names = factor(names(pop_density_ranking_head), levels = names(pop_density_ranking_head)), pop_density_ranking_head) %>%
+  ggplot(aes(names, pop_density_ranking_head, color=names, fill=names)) +
+  geom_col()+
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(legend.position = "none")+
+  labs(y="Population density ranking dominance in the 1962-2007 period (Arbitrary units)",x="Country",
+       title="Most densily populated countries according to ranking dominance during 1962-2007 period")
+        
+ggplotly(g)
 
 ggplot(data, aes(x = Year, y = log10(population_density), group = Country.Name, color = Country.Name, label = Country.Name)) +
   geom_line() +
@@ -115,12 +142,52 @@ for (z in countries) {
     select(Country.Name,Year,life_expectancy) %>%
     filter(Country.Name==z)
   years <- unique(country_life_exp$Year)
-  print(country_life_exp$life_expectancy[country_life_exp$Year==tail(years,1)])
-  print(country_life_exp$life_expectancy[country_life_exp$Year==head(years,1)])
   life_expectancy_diff[z] <- country_life_exp$life_expectancy[country_life_exp$Year==tail(years,1)] - country_life_exp$life_expectancy[country_life_exp$Year==head(years,1)] 
 }
 
 life_expectancy_diff <- life_expectancy_diff %>%
   sort(decreasing = TRUE)
 
-life_expectancy_diff
+life_expectancy_diff_df <- data.frame(names = factor(names(life_expectancy_diff), levels = names(life_expectancy_diff)), life_expectancy_diff)
+
+top_life_exp_bar_plot <- life_expectancy_diff_df %>%
+  head(10) %>%
+  ggplot(aes(names, life_expectancy_diff, color=names, fill=names)) +
+  geom_col()+
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(legend.position = "none")+
+  labs(y="Life expectancy difference (in years)",x="Country",
+       title="Most profound gains in life expectancy during 1962-2007 period")
+
+ggplotly(top_life_exp_bar_plot)
+
+rev_life_expectancy_diff <- life_expectancy_diff %>%
+  sort(decreasing = FALSE)
+rev_life_expectancy_diff_df <- data.frame(names = factor(names(rev_life_expectancy_diff), levels = names(rev_life_expectancy_diff)), rev_life_expectancy_diff) 
+  
+low_life_exp_bar_plot <- rev_life_expectancy_diff_df %>%
+  head(10) %>%
+  ggplot(aes(names, rev_life_expectancy_diff, color=names, fill=names)) +
+  geom_col()+
+  theme(axis.text.x = element_text(angle = 90))+
+  theme(legend.position = "none")+
+  labs(y="Life expectancy difference (in years)",x="Country",
+       title="Worst changes in life expectancy during 1962-2007 period")
+
+ggplotly(low_life_exp_bar_plot)
+
+le_country_codes <- countrycode(names(life_expectancy_diff), origin = 'country.name', destination = 'iso3c')
+life_expectancy_df <- data.frame(country=names(life_expectancy_diff), years=unname(life_expectancy_diff), code=le_country_codes)
+
+geo_config <- list(
+  scope = 'world',
+  showocean = TRUE,
+  oceancolor = toRGB("LightBlue"),
+  showland = TRUE,
+  landcolor = toRGB("#e5ecf6"))
+
+le_choropleth <- plot_ly(life_expectancy_df, type='choropleth', locations=life_expectancy_df$code, z=life_expectancy_df$years, text=life_expectancy_df$country, colors='Greens') %>%
+  layout(title = 'Population density ranking dominance in the 1962-2007 period)', geo = geo_config) %>%
+  colorbar(title = "Years")
+
+le_choropleth
