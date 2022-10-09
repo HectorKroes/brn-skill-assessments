@@ -22,7 +22,7 @@ pc_symbol_chooser <- function(player_symbol) {
 
 round_enunciator <- function(round_num) {
   central_line <- paste(strrep("#", 7), "Round", round_num, strrep("#", 8))
-  cat("\n", strrep("#", 24), central_line, strrep("#", 24), sep = "\n")
+  cat("\n", strrep("#", 24), central_line, strrep("#", 24), "", sep = "\n")
   round_num <- round_num + 1
   return(round_num)
 }
@@ -100,7 +100,7 @@ check_line_for_opportunity <- function(line) {
   coord <- NA
   if (NA %in% line) {
     if (length(unique(line)) == 2) {
-      if (sum(is.na(line))==1) {
+      if (sum(is.na(line)) == 1) {
         coord <- which(is.na(line))
         return(coord)
       }
@@ -125,19 +125,19 @@ pc_move_choice <- function(board) {
       return(move)
     }
   }
-  first_horizontal<-c(board[1,1], board[2, 2], board[3,3])
+  first_horizontal <- c(board[1, 1], board[2, 2], board[3, 3])
   coord <- check_line_for_opportunity(first_horizontal)
   if (!is.na(coord)) {
     move <- c(coord, coord)
     return(move)
   }
-  second_horizontal<-c(board[1,3], board[2, 2], board[3,1])
+  second_horizontal <- c(board[1, 3], board[2, 2], board[3, 1])
   coord <- check_line_for_opportunity(second_horizontal)
   if (!is.na(coord)) {
-    move <- c(coord, 4-coord)
+    move <- c(coord, 4 - coord)
     return(move)
   }
-  while (length(move)==1) {
+  while (length(move) == 1) {
     rand_row <- sample(1:3, 1)
     rand_col <- sample(1:3, 1)
     if (is_coord_unnocupied(board, rand_row, rand_col)) {
@@ -149,10 +149,10 @@ pc_move_choice <- function(board) {
 
 pc_move <- function(board, pc_symbol) {
   cat("\nPlayer", pc_symbol, "turn\n")
-  move<-pc_move_choice(board)
-  row<-move[1]
-  col<-move[2]
-  board[row, col]<-pc_symbol
+  move <- pc_move_choice(board)
+  row <- move[1]
+  col <- move[2]
+  board[row, col] <- pc_symbol
   cat("PC Move registered!\n\n")
   return(board)
 }
@@ -209,11 +209,11 @@ if (interactive()) {
   con <- "stdin"
 }
 
-game<-function(){
+game <- function() {
   player_symbol <- player_symbol_chooser()
   pc_symbol <- pc_symbol_chooser(player_symbol)
   board <- board_setup()
-  round<-1
+  round <- 1
   win <- FALSE
   while (!win) {
     round <- round_enunciator(round)
@@ -224,13 +224,12 @@ game<-function(){
       board <- player_move(board, player_symbol)
       Sys.sleep(1)
       display_board(board)
-      game_on <- check_win(board, player_symbol, pc_symbol)
+      win <- check_win(board, player_symbol, pc_symbol)
       if (win) {
-        return(0)
-      }
-      else{
-      Sys.sleep(1)
-      board <- pc_move(board, pc_symbol)
+        break
+      } else {
+        Sys.sleep(1)
+        board <- pc_move(board, pc_symbol)
       }
     } else {
       board <- pc_move(board, pc_symbol)
@@ -238,16 +237,30 @@ game<-function(){
       display_board(board)
       win <- check_win(board, player_symbol, pc_symbol)
       if (win) {
-        return(0)
-      }
-      else{
-      Sys.sleep(1)
-      board <- player_move(board, player_symbol)
+        break
+      } else {
+        Sys.sleep(1)
+        board <- player_move(board, player_symbol)
       }
     }
     display_board(board)
     win <- check_win(board, player_symbol, pc_symbol)
   }
+  res <- NA
+  while (is.na(res)) {
+    cat("\n\nWant to play again? [y/n] ")
+    confirmation <- toupper(readLines(con = con, n = 1))
+    if (confirmation == "Y") {
+      cat("\n")
+      game()
+    } else if (confirmation == "N") {
+      cat("\nThank you for playing! Until next time!")
+      break
+      break
+    } else {
+      cat("\nInvalid input. Make sure to input either 'y' or 'n'.")
+    }
+  }
 }
 
-session<-game()
+game()
