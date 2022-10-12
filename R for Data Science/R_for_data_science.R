@@ -86,6 +86,8 @@ countries <- unique(data$Country.Name[!is.na(data$Country.Name)])
 
 pop_density_ranking <- rep(0, times = length(countries))
 names(pop_density_ranking) <- countries
+valid_datapoints <- rep(0, times = length(countries))
+names(valid_datapoints) <- countries
 
 for (x in years) {
   year_data <- data %>%
@@ -95,12 +97,13 @@ for (x in years) {
   year_data$population_density <- rank(year_data$population_density, na.last = TRUE)
   for (z in year_data$Country.Name) {
     pop_density_ranking[[z]] <- pop_density_ranking[[z]] + year_data$population_density[year_data$Country.Name == z]
+    valid_datapoints[[z]] <- valid_datapoints[[z]] + 1
   }
 }
 
-pop_density_ranking <- pop_density_ranking %>%
+pop_density_ranking <- (pop_density_ranking / valid_datapoints) %>%
   sort(decreasing = TRUE) %>%
-  replace(pop_density_ranking == 0, NA)
+  replace(pop_density_ranking == Inf, NA)
 
 pd_country_codes <- countrycode(names(pop_density_ranking), origin = "country.name", destination = "iso3c")
 pop_dens_df <- data.frame(country = names(pop_density_ranking), rank = unname(pop_density_ranking), code = pd_country_codes)

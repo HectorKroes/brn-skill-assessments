@@ -153,7 +153,7 @@ pop_density_plot <- ggplot(data, aes(x = Year, y = log10(population_density), gr
 ggplotly(pop_density_plot)
 ```
 
-To ascertain which country has the highest average ranking, we can compare them according to a score that consists of the sum of their position in a decreasing ranking of population density spanning all available years. It's calculated in the following way:
+To ascertain which country has the highest average ranking, we can compare them according to a score that consists of the sum of their position in a decreasing ranking of population density spanning all available years divided by the amount of valid datapoints for that country. It's calculated in the following way:
 
 ```{r}
 years <- unique(data$Year)
@@ -161,6 +161,8 @@ countries <- unique(data$Country.Name[!is.na(data$Country.Name)])
 
 pop_density_ranking <- rep(0, times = length(countries))
 names(pop_density_ranking) <- countries
+valid_datapoints <- rep(0, times = length(countries))
+names(valid_datapoints) <- countries
 
 for (x in years) {
   year_data <- data %>%
@@ -170,16 +172,18 @@ for (x in years) {
   year_data$population_density <- rank(year_data$population_density, na.last = TRUE)
   for (z in year_data$Country.Name) {
     pop_density_ranking[[z]] <- pop_density_ranking[[z]] + year_data$population_density[year_data$Country.Name == z]
+    valid_datapoints[[z]] <- valid_datapoints[[z]] + 1
   }
 }
+
+pop_density_ranking <- (pop_density_ranking / valid_datapoints) %>%
+  sort(decreasing = TRUE) %>%
+  replace(pop_density_ranking == Inf, NA)
 ```
 
 So the countries with the highest scores are:
 
 ```{r}
-pop_density_ranking <- pop_density_ranking %>%
-  sort(decreasing = TRUE)
-
 data.frame(Rank = seq(1, 10), Country = names(head(pop_density_ranking, 10)), Score = unname(head(pop_density_ranking, 10))) %>%
   kbl(caption = "Countries with the most population density during the 1962-2007 period") %>%
   kable_styling(bootstrap_options = "striped", full_width = F)
