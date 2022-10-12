@@ -7,13 +7,12 @@ library(kableExtra)
 # Read in the gapminder_clean.csv data as a tibble using read_csv.
 
 data <- read.csv("gapminder_clean.csv") %>%
-  as_tibble()
-
-colnames(data)[colnames(data) == "CO2.emissions..metric.tons.per.capita."] <- "co2_emissions"
-colnames(data)[colnames(data) == "Population.density..people.per.sq..km.of.land.area."] <- "population_density"
-colnames(data)[colnames(data) == "Imports.of.goods.and.services....of.GDP."] <- "imports"
-colnames(data)[colnames(data) == "Energy.use..kg.of.oil.equivalent.per.capita."] <- "energy_use"
-colnames(data)[colnames(data) == "Life.expectancy.at.birth..total..years."] <- "life_expectancy"
+  as_tibble() %>%
+  rename(co2_emissions = CO2.emissions..metric.tons.per.capita.) %>%
+  rename(population_density = Population.density..people.per.sq..km.of.land.area.) %>%
+  rename(imports = Imports.of.goods.and.services....of.GDP.) %>%
+  rename(energy_use = Energy.use..kg.of.oil.equivalent.per.capita.) %>%
+  rename(life_expectancy = Life.expectancy.at.birth..total..years.)
 
 # Filter the data to include only rows where Year is 1962
 

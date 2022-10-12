@@ -29,21 +29,16 @@ library(countrycode)
 library(kableExtra)
 ```
 
-Then reading in the gapminder_clean.csv data as a tibble using read_csv:
+Then reading in the gapminder_clean.csv data as a tibble using read_csv and renaming columns to avoid the utilization of extensive names:
 
 ```{r}
 data <- read.csv("gapminder_clean.csv") %>%
-  as_tibble()
-```
-
-And renaming some columns to avoid the repetition of bloated names:
-
-```{r}
-colnames(data)[colnames(data) == "CO2.emissions..metric.tons.per.capita."] <- "co2_emissions"
-colnames(data)[colnames(data) == "Population.density..people.per.sq..km.of.land.area."] <- "population_density"
-colnames(data)[colnames(data) == "Imports.of.goods.and.services....of.GDP."] <- "imports"
-colnames(data)[colnames(data) == "Energy.use..kg.of.oil.equivalent.per.capita."] <- "energy_use"
-colnames(data)[colnames(data) == "Life.expectancy.at.birth..total..years."] <- "life_expectancy"
+  as_tibble() %>%
+  rename(co2_emissions = CO2.emissions..metric.tons.per.capita.) %>%
+  rename(population_density = Population.density..people.per.sq..km.of.land.area.) %>%
+  rename(imports = Imports.of.goods.and.services....of.GDP.) %>%
+  rename(energy_use = Energy.use..kg.of.oil.equivalent.per.capita.) %>%
+  rename(life_expectancy = Life.expectancy.at.birth..total..years.)
 ```
 
 ## CO2 and GDP per capita
@@ -288,7 +283,7 @@ geo_config <- list(
   landcolor = toRGB("#e5ecf6")
 )
 
-le_choropleth <- plot_ly(life_expectancy_df, type = "choropleth", locations = life_expectancy_df$code, z = life_expectancy_df$years, text = life_expectancy_df$country, colors = "Reds") %>%
+le_choropleth <- plot_ly(life_expectancy_df, type = "choropleth", locations = life_expectancy_df$code, z = life_expectancy_df$years, text = life_expectancy_df$country, colors = "Greens") %>%
   layout(title = "Changes in life expectancy in the 1962-2007 period)", geo = geo_config) %>%
   colorbar(title = "Years")
 
