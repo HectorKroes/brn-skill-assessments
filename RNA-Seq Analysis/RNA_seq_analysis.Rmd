@@ -32,20 +32,20 @@ They analyzed gene expression profiling of lung tissue to define molecular pathw
 
 ## Initial data handling
 
-The first step in this analysis would be to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the healthy individuals.
+The first step in this analysis would be to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the individuals with normal spirometry (NOR).
 
-```{r, message=FALSE}
+```{r, message=FALSE, warning=FALSE}
 library(recount)
 library(DESeq2)
 library(ggplot2)
 library(tidyverse)
 library(ggrepel)
-library(org.Hs.eg.db)
-library(clusterProfiler)
 library(DOSE)
 library(DT)
 require(biomaRt)
-library(kableExtra)
+library(pheatmap)
+library(fgsea)
+library(reactome.db)
 
 study_acession <- "SRP041538"
 
@@ -68,7 +68,7 @@ dds$condition <- relevel(dds$condition, ref = "NOR")
 
 ## Differential expression analysis
 
-We'll perform the differential expression analysis using DESeq2. The referencial group is that of the healthy individuals and the alpha error cuttoff shall be 0.05. Gene symbols are the way they'll be referred to in the next plots and are HGNC symbols whenever possible (in the absence of an equivalent HGNC symbol, the standard EnsemblID shall be used). The genes exhibited in this following table are those statiscally significant and with an absolute fold change > 2:
+We'll perform the differential expression analysis using DESeq2. The referencial group is that of the individuals with normal spirometry (NOR) and the alpha error cuttoff shall be 0.05. Gene symbols are the way they'll be referred to in the next plots and are HGNC symbols whenever possible (in the absence of an equivalent HGNC symbol, the standard EnsemblID shall be used). The genes exhibited in this following table are those statiscally significant and with an absolute fold change > 2:
 
 ```{r, message=FALSE, warning=FALSE}
 
@@ -80,14 +80,15 @@ dds$treatment <- relevel(dds$condition, ref = "NOR")
 dds <- DESeq(dds)
 
 res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene") %>%
-  rename(logFC=log2FoldChange) %>% rename(FDR=padj)
+  rename(logFC = log2FoldChange) %>%
+  rename(FDR = padj)
 
 ensembl <- useMart("ENSEMBL_MART_ENSEMBL", dataset = "hsapiens_gene_ensembl", host = "www.ensembl.org")
 
 genes <- gsub("\\..*", "", res$gene)
 
 genemap <- getBM(
-  attributes = c("ensembl_gene_id", "hgnc_symbol"),
+  attributes = c("ensembl_gene_id", "hgnc_symbol", "entrezgene_id"),
   filters = "ensembl_gene_id",
   values = genes,
   mart = ensembl
@@ -107,7 +108,7 @@ check_local_symbol <- function(ref, local_symbols) {
 }
 
 local_symbols <- data.frame(rowData(dds)$symbol)
-local_symbols$value[is.na(local_symbols$value)]<-""
+local_symbols$value[is.na(local_symbols$value)] <- ""
 gene_id_list <- NULL
 
 
@@ -117,25 +118,25 @@ for (ref in genes) {
     if (!hgnc_symbol == "") {
       gene_id_list <- append(gene_id_list, hgnc_symbol)
     } else {
-      ref<-check_local_symbol(ref, local_symbols)
+      ref <- check_local_symbol(ref, local_symbols)
       gene_id_list <- append(gene_id_list, ref)
     }
   } else {
-    ref<-check_local_symbol(ref, local_symbols)
+    ref <- check_local_symbol(ref, local_symbols)
     gene_id_list <- append(gene_id_list, ref)
   }
 }
 
-res<-res %>%
-  add_column(symbol=gene_id_list) %>%
+res <- res %>%
+  add_column(symbol = gene_id_list) %>%
   relocate(symbol, .after = gene)
 
 deseq_genes <- res %>%
   as.data.frame() %>%
   filter(FDR < 0.05) %>%
-  filter(logFC>=log2(2)|logFC<=-log2(2)) %>%
-  dplyr::select(EnsemblID= gene, symbol, logFC, pvalue, FDR) %>%
-arrange(FDR)
+  filter(logFC >= log2(2) | logFC <= -log2(2)) %>%
+  dplyr::select(EnsemblID = gene, symbol, logFC, pvalue, FDR) %>%
+  arrange(FDR)
 deseq_genes_count <- nrow(deseq_genes)
 output_note <- paste0("\nTotal differential expressed genes with adjusted p<0.05: ", deseq_genes_count, "\n(top 1000 shown above)")
 deseq_genes %>%
@@ -147,22 +148,23 @@ deseq_genes %>%
 ## PCA plot
 
 ```{r, message=FALSE, warning=FALSE}
-tdds <- vst(dds,blind = T)
+tdds <- vst(dds, blind = T)
 
-pcaData <- plotPCA(tdds, intgroup="condition", returnData=TRUE)
+pcaData <- plotPCA(tdds, intgroup = "condition", returnData = TRUE)
 
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 
-ggplot(pcaData, aes(PC1, PC2, color=group)) +
-  geom_point(size=3) +
-  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
-  ylab(paste0("PC2: ",percentVar[2],"% variance")) + 
-  coord_fixed()+
-  stat_ellipse(aes(x=PC1,y=PC2,fill=factor(group)), show.legend=FALSE,
-               geom="polygon", level=0.8, alpha=0.05)+
-  guides(color=guide_legend("Cluster"))+
+ggplot(pcaData, aes(PC1, PC2, color = group)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed() +
+  stat_ellipse(aes(x = PC1, y = PC2, fill = factor(group)),
+    show.legend = FALSE,
+    geom = "polygon", level = 0.8, alpha = 0.05
+  ) +
+  guides(color = guide_legend("Cluster")) +
   ggtitle("PCA plot of COPD patients x Healthy individuals")
-
 ```
 
 ## Volcano plot
@@ -185,18 +187,19 @@ res <- res %>%
     )
   )
 
-
-top <- 25
-top_genes <- bind_rows(
-  res %>%
-    filter(Expression == "Up-regulated") %>%
-    arrange(FDR, desc(abs(logFC))) %>%
-    head(top),
-  res %>%
-    filter(Expression == "Down-regulated") %>%
-    arrange(FDR, desc(abs(logFC))) %>%
-    head(top)
-)
+top_bottom <- function(top, res) {
+  top_genes <- bind_rows(
+    res %>%
+      filter(Expression == "Up-regulated") %>%
+      arrange(FDR, desc(abs(logFC))) %>%
+      head(top),
+    res %>%
+      filter(Expression == "Down-regulated") %>%
+      arrange(FDR, desc(abs(logFC))) %>%
+      head(top)
+  )
+  return(top_genes)
+}
 
 volcano_plot <- ggplot(res, aes(logFC, -log(FDR, 10))) +
   geom_point(aes(color = Significance), size = 2 / 5) +
@@ -208,7 +211,7 @@ volcano_plot <- ggplot(res, aes(logFC, -log(FDR, 10))) +
   geom_hline(yintercept = -log10(0.05), col = "red") +
   ggtitle("Lung tissue transcriptome of COPD patients x Healthy individuals") +
   geom_label_repel(
-    data = top_genes,
+    data = top_bottom(25, res),
     mapping = aes(logFC, -log(FDR, 10), label = symbol),
     size = 2,
     max.overlaps = Inf
@@ -216,3 +219,77 @@ volcano_plot <- ggplot(res, aes(logFC, -log(FDR, 10))) +
 
 volcano_plot
 ```
+
+## Heatmap
+
+```{r, message=FALSE, warning=FALSE}
+tddsa <- assay(tdds)
+rownames(tddsa) <- gsub("\\..*", "", row.names(tddsa))
+
+heat_genes <- top_bottom(10, res)
+heat_genes$gene <- gsub("\\..*", "", heat_genes$gene)
+
+topDE <- tddsa[heat_genes$gene, ]
+rownames(topDE) <- heat_genes$symbol
+
+col_annotation <- as.data.frame(colData(tdds)[, "condition"])
+colnames(col_annotation) <- "Condition"
+rownames(col_annotation) <- colnames(topDE)
+
+row_annotation <- as.data.frame(heat_genes$Expression)
+colnames(row_annotation) <- "Expression"
+rownames(row_annotation) <- heat_genes$symbol
+
+pheatmap(topDE,
+  scale = "row",
+  clustering_distance_rows = "correlation",
+  annotation_col = col_annotation,
+  annotation_row = row_annotation,
+  show_colnames = FALSE,
+  annotation_names_row = FALSE,
+  annotation_names_col = FALSE,
+  main = "20 genes with the strongest differential expression"
+)
+```
+
+## GSEA
+
+```{r, message=FALSE, warning=FALSE}
+genemap$entrezgene_id[is.null(genemap$entrezgene_id)] <- NA
+
+entrez_id_list <- NULL
+
+for (ref in genes) {
+  if (ref %in% genemap$ensembl_gene_id) {
+    entrez_id <- genemap$entrezgene_id[genemap$ensembl_gene_id == ref][1]
+    if (!is.na(entrez_id)) {
+      entrez_id_list <- append(entrez_id_list, entrez_id)
+    } else {
+      entrez_id_list <- append(entrez_id_list, NA)
+    }
+  } else {
+    entrez_id_list <- append(entrez_id_list, NA)
+  }
+}
+
+res$entrez_id <- as.character(entrez_id_list)
+
+gsea_data <- subset(res, !is.na(stat)) %>%
+  subset(!is.na(FDR))
+
+pathways <- reactomePathways(gsea_data$entrez_id)
+
+ranked_genes <- gsea_data$stat
+names(ranked_genes) <- gsea_data$entrez_id
+
+fgseaRes <- fgsea(pathways, ranked_genes, maxSize = 500)
+
+topPathwaysUp <- fgseaRes[NES > 0][head(order(padj), n = 10), pathway]
+topPathwaysDown <- fgseaRes[NES < 0][head(order(padj), n = 10), pathway]
+topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
+plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
+  gseaParam = 0.5
+)
+```
+
+<div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
