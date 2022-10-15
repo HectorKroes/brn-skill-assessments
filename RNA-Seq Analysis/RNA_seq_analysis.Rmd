@@ -32,9 +32,10 @@ They analyzed gene expression profiling of lung tissue to define molecular pathw
 
 ## Initial data handling
 
-The first step in this analysis would be to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the individuals with normal spirometry (NOR).
+The first step in this analysis is to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the individuals with normal spirometry (NOR). The samples are formatted according to this specific design and then filtered by average gene counts following a threshold adequate for the analysis pipeline used (Sha et al., 2015).
 
 ```{r, message=FALSE, warning=FALSE}
+#Importing libraries
 library(recount)
 library(DESeq2)
 library(ggplot2)
@@ -47,19 +48,26 @@ library(pheatmap)
 library(fgsea)
 library(reactome.db)
 
+#Defining study acession
 study_acession <- "SRP041538"
 
+#Downloading data, if not already available
 if (!file.exists(file.path(study_acession, "rse_gene.Rdata"))) {
   download_study(study_acession)
 }
 
 load(file.path(study_acession, "rse_gene.Rdata"))
 
+#Reading and labeling data
 rse <- scale_counts(rse_gene)
-
 rse$condition <- sapply(strsplit(as.character(rse$title), "-"), `[`, 2)
 
+#Formatting dataset according to the specific design
 dds <- DESeqDataSet(rse, ~condition)
+
+#Filtering samples
+keep <- (rowSums(counts(dds))/ncol(dds)) >= quantile((rowSums(counts(dds))/ncol(dds)), .2)
+dds <- dds[keep,]
 
 dds$condition <- relevel(dds$condition, ref = "NOR")
 ```
@@ -100,10 +108,10 @@ check_local_symbol <- function(ref, local_symbols) {
     if (!hgnc_symbol == "") {
       return(hgnc_symbol)
     } else {
-      return(ref)
+      return(NA)
     }
   } else {
-    return(ref)
+    return(NA)
   }
 }
 
@@ -126,7 +134,7 @@ for (ref in genes) {
     gene_id_list <- append(gene_id_list, ref)
   }
 }
-
+  
 res <- res %>%
   add_column(symbol = gene_id_list) %>%
   relocate(symbol, .after = gene)
@@ -211,7 +219,7 @@ volcano_plot <- ggplot(res, aes(logFC, -log(FDR, 10))) +
   geom_hline(yintercept = -log10(0.05), col = "red") +
   ggtitle("Lung tissue transcriptome of COPD patients x Healthy individuals") +
   geom_label_repel(
-    data = top_bottom(25, res),
+    data = top_bottom(40, res),
     mapping = aes(logFC, -log(FDR, 10), label = symbol),
     size = 2,
     max.overlaps = Inf
@@ -226,7 +234,10 @@ volcano_plot
 tddsa <- assay(tdds)
 rownames(tddsa) <- gsub("\\..*", "", row.names(tddsa))
 
-heat_genes <- top_bottom(10, res)
+filtered_res <- res %>%
+  filter(!is.na(symbol))
+
+heat_genes <- top_bottom(10, filtered_res)
 heat_genes$gene <- gsub("\\..*", "", heat_genes$gene)
 
 topDE <- tddsa[heat_genes$gene, ]
@@ -291,5 +302,26 @@ plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
   gseaParam = 0.5
 )
 ```
+
+# Biological Relevance
+
+## Proteinase–antiproteinase imbalance
+
+A proteinase–antiproteinase imbalance has been the most widely accepted theory for the pathogenesis of pulmonary emphysema since the discovery of the α-1-antitrypsin deficiency (Laurell, Eriksson, 1963). 
+
+Matrix metalloproteinases (MMPs) comprise a structurally and functionally related family of at least 20 proteolytic enzymes, which play an essential role in tissue remodelling and repair associated with development and inflammation. In this analysis, we find that MMP1 (interstitial collagenase) is upregulated in patients with COPD. This corroborates its importance in airway inflammation and the development of emphysema already reported in multiple human and animal studies (Joos et al., 2002).
+
+## Mitochondrial disfunction
+
+The GEAS analysis demonstrates that many mitochondria-related pathways are altered, especially enriched in COPD cases.
+
+Prohibitin (PHB-1) regulates copy number of mtDNA by stabilizing TFAM protein, a known protein component of the mitochondrial nucleoids (Kasashima et al., 2008). In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients.
+
+## Inflammation
+
+Airway inflammation is an important factor in the pathogenesis of COPD.
+
+CXCR1 and CXCR2 were found to be up-regulated, which is compatible with the previous studies that affirmed those chemokine receptors were part of the inflammatory response in the bronchial mucosa from patients with COPD during an acute exacerbation. CXCR3 was also up-regulated, probably reflecting the expression of IFN-γ in peripheral airway mucosal cells. (Larsson, 2007)
+
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>

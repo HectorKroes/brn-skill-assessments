@@ -25,10 +25,13 @@ rse$condition <- sapply(strsplit(as.character(rse$title), "-"), `[`, 2)
 
 dds <- DESeqDataSet(rse, ~condition)
 
-dds$treatment <- relevel(dds$condition, ref = "NOR")
+keep <- (rowSums(counts(dds))/ncol(dds)) >= quantile((rowSums(counts(dds))/ncol(dds)), .20)
+dds <- dds[keep,]
+
+dds$condition <- relevel(dds$condition, ref = "NOR")
 dds <- DESeq(dds)
 
-res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene") %>%
+res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene",  pAdjustMethod = "BH") %>%
   rename(logFC = log2FoldChange) %>%
   rename(FDR = padj)
 
@@ -49,10 +52,10 @@ check_local_symbol <- function(ref, local_symbols) {
     if (!hgnc_symbol == "") {
       return(hgnc_symbol)
     } else {
-      return(ref)
+      return(NA)
     }
   } else {
-    return(ref)
+    return(NA)
   }
 }
 
@@ -83,7 +86,6 @@ res <- res %>%
 deseq_genes <- res %>%
   as.data.frame() %>%
   filter(FDR < 0.05) %>%
-  filter(logFC >= log2(2) | logFC <= -log2(2)) %>%
   dplyr::select(EnsemblID = gene, symbol, logFC, pvalue, FDR) %>%
   arrange(FDR)
 deseq_genes_count <- nrow(deseq_genes)
@@ -123,8 +125,6 @@ top_bottom <- function(top, res) {
   return(top_genes)
 }
 
-top_genes
-
 volcano_plot <- ggplot(res, aes(logFC, -log(FDR, 10))) +
   geom_point(aes(color = Significance), size = 2 / 5) +
   xlab(expression("log"[2] * "(Fold change)")) +
@@ -135,7 +135,7 @@ volcano_plot <- ggplot(res, aes(logFC, -log(FDR, 10))) +
   geom_hline(yintercept = -log10(0.05), col = "red") +
   ggtitle("Lung tissue transcriptome of COPD patients x Healthy individuals") +
   geom_label_repel(
-    data = top_bottom(25, res),
+    data = top_bottom(40, res),
     mapping = aes(logFC, -log(FDR, 10), label = symbol),
     size = 2,
     max.overlaps = Inf
@@ -168,7 +168,10 @@ ggplot(pcaData, aes(PC1, PC2, color = group)) +
 tddsa <- assay(tdds)
 rownames(tddsa) <- gsub("\\..*", "", row.names(tddsa))
 
-heat_genes <- top_bottom(10, res)
+filtered_res <- res %>%
+  filter(!is.na(symbol))
+
+heat_genes <- top_bottom(10, filtered_res)
 heat_genes$gene <- gsub("\\..*", "", heat_genes$gene)
 
 topDE <- tddsa[heat_genes$gene, ]
