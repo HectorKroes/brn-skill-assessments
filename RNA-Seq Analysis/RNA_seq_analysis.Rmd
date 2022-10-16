@@ -10,6 +10,8 @@ output:
     toc_float: true
     number_sections: true
     code_folding: hide
+bibliography: bibliography.bib
+
 ---
 
 ```{r setup, include=FALSE}
@@ -32,10 +34,10 @@ They analyzed gene expression profiling of lung tissue to define molecular pathw
 
 ## Initial data handling
 
-The first step in this analysis is to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the individuals with normal spirometry (NOR). The samples are formatted according to this specific design and then filtered by average gene counts following a threshold adequate for the analysis pipeline used (Sha et al., 2015).
+The first step in this analysis is to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the individuals with normal spirometry (NOR). The samples are formatted according to this specific design and then filtered by average gene counts following a threshold adequate for the analysis pipeline used [@sha_effect_2015].
 
 ```{r, message=FALSE, warning=FALSE}
-#Importing libraries
+# Importing libraries
 library(recount)
 library(DESeq2)
 library(ggplot2)
@@ -48,26 +50,26 @@ library(pheatmap)
 library(fgsea)
 library(reactome.db)
 
-#Defining study acession
+# Defining study acession
 study_acession <- "SRP041538"
 
-#Downloading data, if not already available
+# Downloading data, if not already available
 if (!file.exists(file.path(study_acession, "rse_gene.Rdata"))) {
   download_study(study_acession)
 }
 
 load(file.path(study_acession, "rse_gene.Rdata"))
 
-#Reading and labeling data
+# Reading and labeling data
 rse <- scale_counts(rse_gene)
 rse$condition <- sapply(strsplit(as.character(rse$title), "-"), `[`, 2)
 
-#Formatting dataset according to the specific design
+# Formatting dataset according to the specific design
 dds <- DESeqDataSet(rse, ~condition)
 
-#Filtering samples
-keep <- (rowSums(counts(dds))/ncol(dds)) >= quantile((rowSums(counts(dds))/ncol(dds)), .2)
-dds <- dds[keep,]
+# Filtering samples
+keep <- (rowSums(counts(dds)) / ncol(dds)) >= quantile((rowSums(counts(dds)) / ncol(dds)), .2)
+dds <- dds[keep, ]
 
 dds$condition <- relevel(dds$condition, ref = "NOR")
 ```
@@ -134,7 +136,7 @@ for (ref in genes) {
     gene_id_list <- append(gene_id_list, ref)
   }
 }
-  
+
 res <- res %>%
   add_column(symbol = gene_id_list) %>%
   relocate(symbol, .after = gene)
@@ -307,21 +309,28 @@ plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
 
 ## Proteinase–antiproteinase imbalance
 
-A proteinase–antiproteinase imbalance has been the most widely accepted theory for the pathogenesis of pulmonary emphysema since the discovery of the α-1-antitrypsin deficiency (Laurell, Eriksson, 1963). 
+A proteinase–antiproteinase imbalance has been the most widely accepted theory for the pathogenesis of pulmonary emphysema since the discovery of the α-1-antitrypsin deficiency [@laurell_electrophoretic_2013]. 
 
-Matrix metalloproteinases (MMPs) comprise a structurally and functionally related family of at least 20 proteolytic enzymes, which play an essential role in tissue remodelling and repair associated with development and inflammation. In this analysis, we find that MMP1 (interstitial collagenase) is upregulated in patients with COPD. This corroborates its importance in airway inflammation and the development of emphysema already reported in multiple human and animal studies (Joos et al., 2002).
+In the GEAS plot, we can see the comparatively low enrichment in COPD patients of genes related to the maintenance of the extracellular matrix organization. This represents the smaller expression of antiproteinases and other constitutive elements that are key to the physiological maintenance of the ECM.
 
-## Mitochondrial disfunction
+Meanwhile, we find that MMP1 (interstitial collagenase) is upregulated in patients with COPD. Matrix metalloproteinases (MMPs) comprise a structurally and functionally related family of proteolytic enzymes, which play an essential in ECM remodelling associated with inflammation. This corroborates its importance in airway inflammation and the development of emphysema already reported in multiple human and animal studies [@joos_role_2002].
 
-The GEAS analysis demonstrates that many mitochondria-related pathways are altered, especially enriched in COPD cases.
+## Mitochondrial dysfunction
 
-Prohibitin (PHB-1) regulates copy number of mtDNA by stabilizing TFAM protein, a known protein component of the mitochondrial nucleoids (Kasashima et al., 2008). In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients.
+The GEAS analysis also demonstrates that many mitochondria-related pathways are altered, especially enriched in COPD cases.
 
-## Inflammation
+Prohibitin (PHB-1) has an important role in mtDNA regulation by stabilizing TFAM protein, a known protein component of the mitochondrial nucleoids [@kasashima_human_2008]. In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients, a combination that can explain at least partially the mitochondrial dysfunction.
 
-Airway inflammation is an important factor in the pathogenesis of COPD.
+## Inflammation 
 
-CXCR1 and CXCR2 were found to be up-regulated, which is compatible with the previous studies that affirmed those chemokine receptors were part of the inflammatory response in the bronchial mucosa from patients with COPD during an acute exacerbation. CXCR3 was also up-regulated, probably reflecting the expression of IFN-γ in peripheral airway mucosal cells. (Larsson, 2007)
+Airway inflammation is an important factor in the pathogenesis of COPD as a great part of the changes in the mechanical properties of the lung such as mucosal edema, increased airway secretion and airway remodelling can be attributed to this process.
 
+In this dataset, CXCR1 and CXCR2 were found to be up-regulated, which is compatible with the previous studies that affirmed those chemokine receptors were an important part of the inflammatory response in the bronchial mucosa from patients with COPD during an acute exacerbation. CXCR3 was also up-regulated, probably reflecting the intensified expression of IFN-γ in peripheral airway mucosal cells [@larsson_aspects_2007].
+
+## Susceptibility
+
+Some genes are described in the literature as being risk factors for the development of COPD. One of the main candidates is SERPINA-3, which was also found to be up-regulated in COPD patients in this analysis.
+
+# Bibliography 
 
 <div class="tocify-extend-page" data-unique="tocify-extend-page" style="height: 0;"></div>
