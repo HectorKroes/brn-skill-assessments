@@ -5,13 +5,13 @@ symbol_verifier <- function() {
   if (symbol %in% c("X", "O")) {
     return(symbol)
   }
-  cat("Invalid symbol. Make sure to input either 'X' or 'O.'\n\n")
+  message("Invalid symbol. Make sure to input either 'X' or 'O.'\n\n")
   symbol_verifier()
 }
 
 player_symbol_chooser <- function() {
   symbol <- symbol_verifier()
-  cat("You successfully selected", symbol)
+  message("You successfully selected", symbol)
   return(symbol)
 }
 
@@ -64,30 +64,33 @@ is_coord_unnocupied <- function(board, row, column) {
 
 # Player move prompt function
 
-determine_placement <- function(board) {
-  cat("Which row? ")
-  row <- readLines(con = con, n = 1)
-  cat("Which column? ")
-  column <- readLines(con = con, n = 1)
-  row_valid <- is_coord_valid(row)
-  column_valid <- is_coord_valid(column)
-  if (row_valid & column_valid) {
-    row <- as.numeric(row)
-    column <- as.numeric(column)
-    coord_unnocupied <- is_coord_unnocupied(board, row, column)
-    if (coord_unnocupied) {
-      return(c(row, column))
-    } else {
-      cat("\nOccupied coordinate. Please select another one.\n\n")
-    }
+coord_prompter <- function(coord_name, board) {
+  cat("Which", coord_name, "? ")
+  coord <- readLines(con = con, n = 1)
+  coord_valid <- is_coord_valid(coord)
+  if (coord_valid) {
+    coord <- as.numeric(coord)
+    return(coord)
   } else {
-    cat("\nInvalid coordinate. Make sure to input either 1, 2 or 3.\n\n")
+    message("\nInvalid coordinate. Make sure to input either 1, 2 or 3.\n\n")
   }
-  determine_placement()
+  coord_prompter(coord_name)
+}
+
+determine_placement <- function(board) {
+  row <- coord_prompter("row", board)
+  column <- coord_prompter("column", board)
+  coord_unnocupied <- is_coord_unnocupied(board, row, column)
+  if (coord_unnocupied) {
+    return(c(row, column))
+  } else {
+    message("\nOccupied coordinate. Please select another one.\n\n")
+  }
+  determine_placement(board)
 }
 
 confirm_placement <- function(prompt, player_symbol, row, column, board) {
-  cat("Place ", player_symbol, " at row ", row, ", column ", column, "? [y/n] ", sep = "")
+  message("Place ", player_symbol, " at row ", row, ", column ", column, "? [y/n] ")
   confirmation <- toupper(readLines(con = con, n = 1))
   if (confirmation == "Y") {
     board[row, column] <- player_symbol
@@ -282,7 +285,6 @@ replay <- function() {
     game()
   } else if (confirmation == "N") {
     cat("\nThank you for playing! Until next time!")
-    break
   } else {
     cat("\nInvalid input. Make sure to input either 'y' or 'n'.")
     replay()
