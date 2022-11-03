@@ -105,7 +105,6 @@ ggplotly(co2_gdp_scatterplot)
 # Unguided analysis
 
 
-
 ## Energy use problem 
 
 **What is the relationship between continent and 'Energy use (kg of oil equivalent per capita)'?**
@@ -125,7 +124,7 @@ So, with a p-value of 4.25e-9 on Levene's test and 2.2e-16 on Shapiro-Wilk, we c
 kruskal.test(energy_use ~ continent, data = data)
 ```
 
-As the p-value found is as small as 2.2e-16, we can rule out the null hypothesis and conclude there's a statistically signficant correlation between continent and per capita energy use.
+**As the p-value found is as small as 2.2e-16, we can rule out the null hypothesis and conclude there's a statistically signficant correlation between continent and per capita energy use.**
 
 ## Imports problem 
 
@@ -151,7 +150,7 @@ europe_asia_imports_mww <- wilcox.test(data_as_eu_after_90$imports[data_as_eu_af
 europe_asia_imports_mww
 ```
 
-As the p-value is 0.7867 we cannot rule out the null hypothesis, which means there is no statistically significant difference between Asian and European imports of services and goods after 1990.
+**As the p-value is 0.7867 we cannot rule out the null hypothesis, which means there is no statistically significant difference between Asian and European imports of services and goods after 1990.**
 
 ## Population density problem
 
@@ -200,7 +199,9 @@ data.frame(Country = names(pop_density_ranking), Score = unname(pop_density_rank
   datatable()
 ```
 
-We can conclude that the location with the highest average ranking in this period is Macao SAR, China. Having already calculated the population density score, we can best visualize it by building a choropleth: 
+**We can conclude that the location with the highest average ranking in this period is Macao SAR, China, tied with Monaco**. 
+
+Having already calculated the population density score, we can best visualize it by building a choropleth: 
 
 
 ```{r, warning=FALSE}
@@ -248,7 +249,9 @@ life_expectancy_diff %>%
   datatable(colnames = c("Country", "Life expectancy change in years", "Percentage of growth in life expectancy"))
 ```
 
-So we can conclude that the location with the greatest increase in life expectancy were the Maldives. And again, to better visualize the bigger picture, we will plot another cloropleth:
+**So we can conclude that the location with the greatest absolute increase in life expectancy were the Maldives, with an increase of 36.92 years. The country with the highest relative increase was Bhutan, that saw a growth of 100.32% in its life expectancy.** 
+
+And again, to better visualize the data, we will plot a cloropleth:
 
 ```{r, warning=FALSE}
 le_country_codes <- countrycode(as.vector(countries), origin = "country.name", destination = "iso3c")
