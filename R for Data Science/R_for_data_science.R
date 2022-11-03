@@ -66,8 +66,11 @@ ggplotly(co2_gdp_scatterplot)
 
 # What is the relationship between continent and 'Energy use (kg of oil equivalent per capita)'?
 
-energy_continent_anova <- aov(energy_use ~ continent, data = data)
-summary(energy_continent_anova)
+leveneTest(energy_use ~ continent, data = data)
+
+shapiro.test(data$energy_use)
+
+kruskal.test(energy_use ~ continent, data = data)
 
 # Is there a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990?
 
@@ -77,8 +80,8 @@ data_as_eu_after_90 <- data %>%
   select(Country.Name, Year, imports, continent) %>%
   filter(continent %in% relevant_continents, Year > 1990)
 
-europe_asia_imports_t_test <- t.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Europe"], data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Asia"])
-europe_asia_imports_t_test
+shapiro.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Europe"])
+shapiro.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Asia"])
 
 # What is the country (or countries) that has the highest 'Population density (people per sq. km of land area)' across all years?
 
