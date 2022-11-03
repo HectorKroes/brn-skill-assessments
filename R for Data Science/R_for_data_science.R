@@ -3,6 +3,7 @@ library(ggplot2)
 library(plotly)
 library(countrycode)
 library(kableExtra)
+library(DT)
 
 # Read in the gapminder_clean.csv data as a tibble using read_csv.
 
@@ -122,8 +123,8 @@ density_choropleth <- plot_ly(pop_dens_df, type = "choropleth", locations = pop_
 
 density_choropleth
 
-g <- data.frame(names = factor(names(pop_density_ranking_head), levels = names(pop_density_ranking_head)), pop_density_ranking_head) %>%
-  ggplot(aes(names, pop_density_ranking_head, color = names, fill = names)) +
+g <- data.frame(names = factor(names(pop_density_ranking), levels = names(pop_density_ranking)), pop_density_ranking) %>%
+  ggplot(aes(names, pop_density_ranking, color = names, fill = names)) +
   geom_col() +
   theme_classic() +
   theme(axis.text.x = element_text(angle = 90)) +

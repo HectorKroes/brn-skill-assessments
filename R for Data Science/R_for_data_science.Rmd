@@ -9,6 +9,7 @@ output:
     toc: true
     toc_float: true
     number_sections: true
+    code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -19,19 +20,17 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Initial data handling
 
-The first step in this analysis would be to import all libraries that are going to be used during these tasks:
+After reading the gapminder_clean.csv file using read_csv we have the following dataset that will be used for all the analysis in this document:
 
-```{r, message=FALSE}
+```{r, message=FALSE, warning=FALSE}
 library(tidyverse)
 library(ggplot2)
 library(plotly)
 library(countrycode)
 library(kableExtra)
-```
+library(car)
+library(DT)
 
-Then reading in the gapminder_clean.csv data as a tibble using read_csv and renaming columns to avoid the utilization of extensive names:
-
-```{r}
 data <- read.csv("gapminder_clean.csv") %>%
   as_tibble() %>%
   rename(co2_emissions = CO2.emissions..metric.tons.per.capita.) %>%
@@ -39,20 +38,18 @@ data <- read.csv("gapminder_clean.csv") %>%
   rename(imports = Imports.of.goods.and.services....of.GDP.) %>%
   rename(energy_use = Energy.use..kg.of.oil.equivalent.per.capita.) %>%
   rename(life_expectancy = Life.expectancy.at.birth..total..years.)
+
+datatable(data, options = list(pageLength = 10, scrollX = "400px"), filter = "top")
 ```
 
 ## CO2 and GDP per capita
 
-First off, it's requested that I plot a graph of countries' CO2 emissions matched with their GDP per capita in 1962. To achieve that, we must filter the data so we get just the data on the relevant year:
-
-```{r}
-data_on_62 <- data %>%
-  filter(Year == 1962)
-```
-
-With this data, we can already plot the respective dot plot:
+First off, it's requested that I plot a graph of countries' CO2 emissions matched with their GDP per capita in 1962. To achieve that, we must filter the data so we get just the data on the relevant year and then we can already plot the requested graph:
 
 ```{r, warning=FALSE}
+data_on_62 <- data %>%
+  filter(Year == 1962)
+
 ggplot(data_on_62, aes(x = co2_emissions, y = gdpPercap)) +
   geom_point() +
   labs(
@@ -68,7 +65,7 @@ cor_test_res <- cor.test(data_on_62$co2_emissions, data_on_62$gdpPercap)
 cor_test_res
 ```
 
-It is then requested that I calculate in which year the correlation between the CO2 emissions and GDP per capita is stronger. It can be done in the following manner:
+It is then requested that I calculate in which year the correlation between the CO2 emissions and GDP per capita is stronger. The correlations are shown in the following table in decrescent order:
 
 ```{r}
 cor_table <- data %>%
@@ -113,29 +110,48 @@ ggplotly(co2_gdp_scatterplot)
 
 **What is the relationship between continent and 'Energy use (kg of oil equivalent per capita)'?**
 
-As a relation with a categorical predictor variable and a single quantitative outcome to be evaluated in respect to multiple groups, the adequate statistical test to be implemented in this case is ANOVA. And aplying this method, we get the following results:
+
+The relation we want to analyse it's relative to a categorical predictor variable and a single quantitative outcome to be evaluated in respect to multiple groups. To determine the adequate statistical test to be implemented in this case, we should resolve whether to use a parametric or non-parametric method. We can do this by evaluating if the variance between groups is equal by applying Levene's test and if the data is normally distributed by a Shapiro-Wilk test:
+
+```{r, warning=FALSE}
+leveneTest(energy_use ~ continent, data = data)
+
+shapiro.test(data$energy_use)
+```
+
+So, with a p-value of 4.25e-9 on Levene's test and 2.2e-16 on Shapiro-Wilk, we can reject both the null hypothesis and conclude that the variances are not equal and that the data is not distributed normally. Taking that into account, the adequate statistical test to be applied is the Kruskal-Wallis test:
 
 ```{r}
-energy_continent_anova <- aov(energy_use ~ continent, data = data)
-summary(energy_continent_anova)
+kruskal.test(energy_use ~ continent, data = data)
 ```
+
+As the p-value found is as small as 2.2e-16, we can rule out the null hypothesis and conclude there's a statistically signficant correlation between continent and per capita energy use.
 
 ## Imports problem 
 
 **Is there a significant difference between Europe and Asia with respect to 'Imports of goods and services (% of GDP)' in the years after 1990?**
 
-In contrast, although this case also features a categorical predictor variable and single quantitative outcome, they are grouped according to just two continents. So, in this case we should analyse it with a t-test:
+In contrast, although this case also features a categorical predictor variable and single quantitative outcome, they are grouped according to just two continents. To evaluate which statistical test to use, we must again determine whether the distribution of the data is normal or not using the Shapiro-Wilk test:
 
-```{r}
+```{r, warning=FALSE}
 relevant_continents <- c("Europe", "Asia")
 
 data_as_eu_after_90 <- data %>%
   select(Country.Name, Year, imports, continent) %>%
   filter(continent %in% relevant_continents, Year > 1990)
 
-europe_asia_imports_t_test <- t.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Europe"], data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Asia"])
-europe_asia_imports_t_test
+shapiro.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Europe"])
+shapiro.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Asia"])
 ```
+
+As they are not normally distributed, the appropriate statistical test to be applied is Mann-Whitney-Wilcoxon test:
+
+```{r}
+europe_asia_imports_mww <- wilcox.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Europe"], data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Asia"])
+europe_asia_imports_mww
+```
+
+As the p-value is 0.7867 we cannot rule out the null hypothesis, which means there is no statistically significant difference between Asian and European imports of services and goods after 1990.
 
 ## Population density problem
 
@@ -153,7 +169,7 @@ pop_density_plot <- ggplot(data, aes(x = Year, y = log10(population_density), gr
 ggplotly(pop_density_plot)
 ```
 
-To ascertain which country has the highest average ranking, we can compare them according to a score that consists of the sum of their position in a decreasing ranking of population density spanning all available years divided by the amount of valid datapoints for that country. It's calculated in the following way:
+To ascertain which country has the highest average ranking, we can compare them according to a score that consists of the sum of their position in a decreasing ranking of population density spanning all available years divided by the amount of valid datapoints for that country. This score is presented in the following table:
 
 ```{r}
 years <- unique(data$Year)
@@ -179,17 +195,12 @@ for (x in years) {
 pop_density_ranking <- (pop_density_ranking / valid_datapoints) %>%
   sort(decreasing = TRUE) %>%
   replace(pop_density_ranking == Inf, NA)
+
+data.frame(Country = names(pop_density_ranking), Score = unname(pop_density_ranking)) %>%
+  datatable()
 ```
 
-So the countries with the highest scores are:
-
-```{r}
-data.frame(Rank = seq(1, 10), Country = names(head(pop_density_ranking, 10)), Score = unname(head(pop_density_ranking, 10))) %>%
-  kbl(caption = "Countries with the most population density during the 1962-2007 period") %>%
-  kable_styling(bootstrap_options = "striped", full_width = F)
-```
-
-Having already calculated the population density score, we can best visualize it by building a choropleth: 
+We can conclude that the location with the highest average ranking in this period is Macao SAR, China. Having already calculated the population density score, we can best visualize it by building a choropleth: 
 
 
 ```{r, warning=FALSE}
@@ -215,69 +226,33 @@ density_choropleth
 
 **What country (or countries) has shown the greatest increase in 'Life expectancy at birth, total (years)' since 1962?**
 
-To calculate this, we must get the difference between the life expectancy at the first data point and the last one for each country. We can do such a thing in the following manner:
+To calculate this, we must get the difference between the life expectancy at the first data point and the last one for each country. This is shown in the next table, with the presentation of the absolute change of life expectancy in years and the percentage of growth this change represents:
 
 ```{r}
-life_expectancy_diff <- rep(0, times = length(countries))
-names(life_expectancy_diff) <- countries
+life_expectancy_diff <- as.data.frame(countries) %>%
+  mutate(years = rep(0, times = length(countries))) %>%
+  mutate(change = rep(0, times = length(countries)))
 
 for (z in countries) {
   country_life_exp <- data %>%
     select(Country.Name, Year, life_expectancy) %>%
     filter(Country.Name == z)
   years <- unique(country_life_exp$Year)
-  life_expectancy_diff[z] <- country_life_exp$life_expectancy[country_life_exp$Year == tail(years, 1)] - country_life_exp$life_expectancy[country_life_exp$Year == head(years, 1)]
+  life_expectancy_diff$years[life_expectancy_diff$countries == z] <- round(country_life_exp$life_expectancy[country_life_exp$Year == tail(years, 1)] - country_life_exp$life_expectancy[country_life_exp$Year == head(years, 1)], digits = 2)
+  life_expectancy_diff$change[life_expectancy_diff$countries == z] <- paste0(round(((country_life_exp$life_expectancy[country_life_exp$Year == tail(years, 1)] / country_life_exp$life_expectancy[country_life_exp$Year == head(years, 1)]) - 1) * 100, digits = 2), "%")
 }
 
-life_expectancy_diff <- life_expectancy_diff %>%
-  sort(decreasing = TRUE)
+life_expectancy_diff %>%
+  filter(!is.na(years)) %>%
+  arrange(desc(years)) %>%
+  datatable(colnames = c("Country", "Life expectancy change in years", "Percentage of growth in life expectancy"))
 ```
 
-Then we can present the countries who had the greatest increases in their life expectancy in a bar plot:
-
-```{r}
-life_expectancy_diff_df <- data.frame(names = factor(names(life_expectancy_diff), levels = names(life_expectancy_diff)), life_expectancy_diff)
-
-top_life_exp_bar_plot <- life_expectancy_diff_df %>%
-  head(10) %>%
-  ggplot(aes(names, life_expectancy_diff, color = names, fill = names)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  theme(legend.position = "none") +
-  labs(
-    y = "Life expectancy difference (in years)", x = "Country",
-    title = "Most profound gains in life expectancy during 1962-2007 period"
-  )
-
-ggplotly(top_life_exp_bar_plot)
-```
-
-As we can also see the worst results in this period:
-
-```{r}
-rev_life_expectancy_diff <- life_expectancy_diff %>%
-  sort(decreasing = FALSE)
-rev_life_expectancy_diff_df <- life_expectancy_diff_df <- data.frame(names = factor(names(rev_life_expectancy_diff), levels = names(rev_life_expectancy_diff)), rev_life_expectancy_diff)
-
-low_life_exp_bar_plot <- rev_life_expectancy_diff_df %>%
-  head(10) %>%
-  ggplot(aes(names, rev_life_expectancy_diff, color = names, fill = names)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  theme(legend.position = "none") +
-  labs(
-    y = "Life expectancy difference (in years)", x = "Country",
-    title = "Worst changes in life expectancy during 1962-2007 period"
-  )
-
-ggplotly(low_life_exp_bar_plot)
-```
-
-And at last, a choropleth plot would be useful for presenting the bigger picture:
+So we can conclude that the location with the greatest increase in life expectancy were the Maldives. And again, to better visualize the bigger picture, we will plot another cloropleth:
 
 ```{r, warning=FALSE}
-le_country_codes <- countrycode(names(life_expectancy_diff), origin = "country.name", destination = "iso3c")
-life_expectancy_df <- data.frame(country = names(life_expectancy_diff), years = unname(life_expectancy_diff), code = le_country_codes)
+le_country_codes <- countrycode(as.vector(countries), origin = "country.name", destination = "iso3c")
+life_expectancy_df <- data.frame(country = life_expectancy_diff$countries, years = life_expectancy_diff$years, code = le_country_codes)
 
 geo_config <- list(
   scope = "world",
@@ -287,7 +262,7 @@ geo_config <- list(
   landcolor = toRGB("#e5ecf6")
 )
 
-le_choropleth <- plot_ly(life_expectancy_df, type = "choropleth", locations = life_expectancy_df$code, z = life_expectancy_df$years, text = life_expectancy_df$country, colors = "Greens") %>%
+le_choropleth <- plot_ly(life_expectancy_df, type = "choropleth", locations = life_expectancy_df$code, z = life_expectancy_df$years, text = life_expectancy_df$country, colors = "RdYlGn") %>%
   layout(title = "Changes in life expectancy in the 1962-2007 period)", geo = geo_config) %>%
   colorbar(title = "Years")
 
