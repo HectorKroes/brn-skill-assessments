@@ -4,6 +4,7 @@ library(plotly)
 library(countrycode)
 library(kableExtra)
 library(DT)
+library(car)
 
 # Read in the gapminder_clean.csv data as a tibble using read_csv.
 
@@ -88,26 +89,50 @@ shapiro.test(data_as_eu_after_90$imports[data_as_eu_after_90$continent == "Asia"
 years <- unique(data$Year)
 countries <- unique(data$Country.Name[!is.na(data$Country.Name)])
 
-pop_density_ranking <- rep(0, times = length(countries))
-names(pop_density_ranking) <- countries
-valid_datapoints <- rep(0, times = length(countries))
-names(valid_datapoints) <- countries
-
-for (x in years) {
-  year_data <- data %>%
-    select(Country.Name, Year, population_density) %>%
-    na.omit() %>%
-    filter(Year == x)
-  year_data$population_density <- rank(year_data$population_density, na.last = TRUE)
-  for (z in year_data$Country.Name) {
-    pop_density_ranking[[z]] <- pop_density_ranking[[z]] + year_data$population_density[year_data$Country.Name == z]
-    valid_datapoints[[z]] <- valid_datapoints[[z]] + 1
+country_iterator <- function(country, year_data) {
+  year_data <- year_data %>%
+    filter(Country.Name == country)
+  if (nrow(year_data) > 0) {
+    return(year_data$population_density)
+  } else {
+    return(NA)
   }
 }
 
-pop_density_ranking <- (pop_density_ranking / valid_datapoints) %>%
-  sort(decreasing = TRUE) %>%
-  replace(pop_density_ranking == Inf, NA)
+year_round_calculus <- function(year) {
+  year_data <- data %>%
+    select(Country.Name, Year, population_density) %>%
+    filter(Year == year)
+  vector <- sapply(countries, country_iterator, year_data)
+  vector <- rank(vector, na.last = "keep")
+  return(vector)
+}
+
+valid_datapoints_calculator <- function(country) {
+  country_data <- data %>%
+    filter(Country.Name == country) %>%
+    select(Country.Name, Year, population_density) %>%
+    na.omit()
+  valid_datapoints <- length(country_data$Year)
+  return(valid_datapoints)
+}
+
+density_score <- rowSums(sapply(years, year_round_calculus))
+valid_datapoints <- sapply(countries, valid_datapoints_calculator)
+
+pop_density_ranking <- (density_score / valid_datapoints) %>%
+  as_tibble() %>%
+  mutate(country = countries) %>%
+  filter(!is.infinite(value)) %>%
+  arrange(desc(value))
+
+max_dens <- pop_density_ranking %>%
+  na.omit() %>%
+  filter(value == max(value)) %>%
+  pull(country)
+
+data.frame(Country = pop_density_ranking$country, Score = pop_density_ranking$value) %>%
+  datatable()
 
 pd_country_codes <- countrycode(names(pop_density_ranking), origin = "country.name", destination = "iso3c")
 pop_dens_df <- data.frame(country = names(pop_density_ranking), rank = unname(pop_density_ranking), code = pd_country_codes)
@@ -153,54 +178,29 @@ ggplot(data, aes(x = Year, y = log10(population_density), group = Country.Name, 
 
 # What country (or countries) has shown the greatest increase in 'Life expectancy at birth, total (years)' since 1962?
 
-life_expectancy_diff <- rep(0, times = length(countries))
-names(life_expectancy_diff) <- countries
-
-for (z in countries) {
+life_expectancy_diff_calculator <- function(country, country_life_exp) {
   country_life_exp <- data %>%
     select(Country.Name, Year, life_expectancy) %>%
-    filter(Country.Name == z)
+    filter(Country.Name == country)
   years <- unique(country_life_exp$Year)
-  life_expectancy_diff[z] <- country_life_exp$life_expectancy[country_life_exp$Year == tail(years, 1)] - country_life_exp$life_expectancy[country_life_exp$Year == head(years, 1)]
+  life_expectancy_years <- round(country_life_exp$life_expectancy[country_life_exp$Year == tail(years, 1)] - country_life_exp$life_expectancy[country_life_exp$Year == head(years, 1)], digits = 2)
+  life_expectancy_pchange <- paste0(round(((country_life_exp$life_expectancy[country_life_exp$Year == tail(years, 1)] / country_life_exp$life_expectancy[country_life_exp$Year == head(years, 1)]) - 1) * 100, digits = 2), "%")
+  return(c(life_expectancy_years, life_expectancy_pchange))
 }
 
-life_expectancy_diff <- life_expectancy_diff %>%
-  sort(decreasing = TRUE)
+life_exp_df <- sapply(countries, life_expectancy_diff_calculator)
 
-life_expectancy_diff_df <- data.frame(names = factor(names(life_expectancy_diff), levels = names(life_expectancy_diff)), life_expectancy_diff)
+life_expectancy_diff <- as.data.frame(countries) %>%
+  mutate(years = sapply(life_exp_df[1, ], as.integer)) %>%
+  mutate(change = life_exp_df[2, ])
 
-top_life_exp_bar_plot <- life_expectancy_diff_df %>%
-  head(10) %>%
-  ggplot(aes(names, life_expectancy_diff, color = names, fill = names)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  theme(legend.position = "none") +
-  labs(
-    y = "Life expectancy difference (in years)", x = "Country",
-    title = "Most profound gains in life expectancy during 1962-2007 period"
-  )
+life_expectancy_diff %>%
+  filter(!is.na(years)) %>%
+  arrange(desc(years)) %>%
+  datatable(colnames = c("Country", "Life expectancy change in years", "Percentage of growth in life expectancy"))
 
-ggplotly(top_life_exp_bar_plot)
-
-rev_life_expectancy_diff <- life_expectancy_diff %>%
-  sort(decreasing = FALSE)
-rev_life_expectancy_diff_df <- data.frame(names = factor(names(rev_life_expectancy_diff), levels = names(rev_life_expectancy_diff)), rev_life_expectancy_diff)
-
-low_life_exp_bar_plot <- rev_life_expectancy_diff_df %>%
-  head(10) %>%
-  ggplot(aes(names, rev_life_expectancy_diff, color = names, fill = names)) +
-  geom_col() +
-  theme(axis.text.x = element_text(angle = 90)) +
-  theme(legend.position = "none") +
-  labs(
-    y = "Life expectancy difference (in years)", x = "Country",
-    title = "Worst changes in life expectancy during 1962-2007 period"
-  )
-
-ggplotly(low_life_exp_bar_plot)
-
-le_country_codes <- countrycode(names(life_expectancy_diff), origin = "country.name", destination = "iso3c")
-life_expectancy_df <- data.frame(country = names(life_expectancy_diff), years = unname(life_expectancy_diff), code = le_country_codes)
+le_country_codes <- countrycode(as.vector(countries), origin = "country.name", destination = "iso3c")
+life_expectancy_df <- data.frame(country = life_expectancy_diff$countries, years = life_expectancy_diff$years, code = le_country_codes)
 
 geo_config <- list(
   scope = "world",
@@ -210,8 +210,8 @@ geo_config <- list(
   landcolor = toRGB("#e5ecf6")
 )
 
-le_choropleth <- plot_ly(life_expectancy_df, type = "choropleth", locations = life_expectancy_df$code, z = life_expectancy_df$years, text = life_expectancy_df$country, colors = "Greens") %>%
-  layout(title = "Population density ranking dominance in the 1962-2007 period)", geo = geo_config) %>%
+le_choropleth <- plot_ly(life_expectancy_df, type = "choropleth", locations = life_expectancy_df$code, z = life_expectancy_df$years, text = life_expectancy_df$country, colors = "RdYlGn") %>%
+  layout(title = "Changes in life expectancy in the 1962-2007 period)", geo = geo_config) %>%
   colorbar(title = "Years")
 
 le_choropleth
