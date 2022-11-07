@@ -32,9 +32,15 @@ The dataset chosen for the analysis is the following:
 
 They analyzed gene expression profiling of lung tissue to define molecular pathway of COPD using recent RNA sequencing technology. Lung tissue was obtained from 98 COPD subjects and 91 subjects with normal spirometry. RNA isolated from these samples was processed with RNA-seq using HiSeq 2000. Gene expression measurements were calculated using Cufflinks software.
 
+## The Disease
+
+Chronic obstructive pulmonary disease (COPD) is the third leading cause of death worldwide, causing 3.23 million deaths in 2019. It is a common, preventable and treatable chronic lung disease which affects approximately 300 million men and women worldwide, mainly in low to middle-income countries.
+
+As it develops, abnormalities in the small airways of the lungs lead to limitation of airflow in and out of the lungs. Several processes cause the airways to become narrow. There may be destruction of parts of the lung, mucus blocking the airways, and inflammation and swelling of the airway lining. It usually manifests itself through cough, wheezing and difficulty breathing.
+
 ## Initial data handling
 
-The first step in this analysis is to import all libraries that are going to be used during these tasks. Then we should download and scale the counts file from recount2 using the study acession, dividing the patients into conditions with the reference being the individuals with normal spirometry (NOR). The samples are formatted according to this specific design and then filtered by average gene counts following a threshold adequate for the analysis pipeline used [@sha_effect_2015].
+The files were downloaded from recount2 using the study acession id "SRP041538". The data was then scaled and the patients were divided into conditions reflecting whether or not they had COPD, with the reference being the individuals with normal spirometry (NOR). The samples are formatted according to this specific design and then filtered by average gene counts following a threshold adequate for the analysis pipeline used [@sha_effect_2015].
 
 ```{r, message=FALSE, warning=FALSE}
 # Importing libraries
@@ -169,11 +175,6 @@ ggplot(pcaData, aes(PC1, PC2, color = group)) +
   xlab(paste0("PC1: ", percentVar[1], "% variance")) +
   ylab(paste0("PC2: ", percentVar[2], "% variance")) +
   coord_fixed() +
-  stat_ellipse(aes(x = PC1, y = PC2, fill = factor(group)),
-    show.legend = FALSE,
-    geom = "polygon", level = 0.8, alpha = 0.05
-  ) +
-  guides(color = guide_legend("Cluster")) +
   ggtitle("PCA plot of COPD patients x Healthy individuals")
 ```
 
@@ -306,6 +307,49 @@ plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
 ```
 
 # Biological Relevance
+
+grViz("digraph flowchart {
+      # node definitions with substituted label text
+      node [fontname = Helvetica, shape = rectangle]        
+      tab1 [label = '@@1']
+      tab2 [label = '@@2']
+      tab3 [label = '@@3']
+      tab4 [label = '@@4']
+      tab5 [label = '@@5']
+      tab6 [label = '@@6']
+      tab7 [label = '@@7']
+      tab8 [label = '@@8']
+      tab9 [label = '@@9']
+      tab10 [label = '@@10']
+      tab11 [label = '@@11']
+      tab12 [label = '@@12', fillcolor = red]
+      tab13 [label = '@@13', fillcolor = red]
+
+      # edge definitions with the node IDs
+      tab1 -> tab2 -> tab4;
+      tab2 -> tab3 -> tab8 -> tab12;
+      tab3 -> tab9 -> tab12;
+      tab3 -> tab10 -> tab12;
+      tab1 -> tab4 -> tab5 -> tab11;
+      tab4 -> tab7 -> tab11;
+      tab1 -> tab6 -> tab11;
+      tab11-> tab13;
+      }
+
+      [1]: 'Inflammation'
+      [2]: 'Proteinase–antiproteinase imbalance'
+      [3]: 'Destruction of alveolar walls and capillaries'
+      [4]: 'Oxidative stress and inflamatory mediators'
+      [5]: 'Fibrosis and thickening of bronchiolar walls'
+      [6]: 'Mucus hypersecretion and ciliary dysfunction'
+      [7]: 'Edema and smooth muscle contration in the airways'
+      [8]: 'Enlarged air spaces'
+      [9]: 'Impaired gas diffusion'
+      [10]: 'Air trapping on expiration'
+      [11]: 'Narrowing of small vessels'
+      [12]: 'Emphysema'
+      [13]: 'Chronic bronchitis'
+      ")
 
 ## Proteinase–antiproteinase imbalance
 
