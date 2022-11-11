@@ -34,9 +34,10 @@ They analyzed gene expression profiling of lung tissue to define molecular pathw
 
 ## The Disease
 
-Chronic obstructive pulmonary disease (COPD) is the third leading cause of death worldwide, causing 3.23 million deaths in 2019. It is a common, preventable and treatable chronic lung disease which affects approximately 300 million men and women worldwide, mainly in low to middle-income countries.
+Chronic obstructive pulmonary disease (COPD) is the third leading cause of death worldwide, causing 3.23 million deaths in 2019 [@noauthor_chronic_2020]. It is a common, preventable and treatable chronic lung disease which affects approximately 300 million men and women worldwide, mainly in low to middle-income countries [@ruvuna_epidemiology_2020].
 
 As it develops, abnormalities in the small airways of the lungs lead to limitation of airflow in and out of the lungs. Several processes cause the airways to become narrow. There may be destruction of parts of the lung, mucus blocking the airways, and inflammation and swelling of the airway lining. It usually manifests itself through cough, wheezing and difficulty breathing.
+
 
 ## Initial data handling
 
@@ -44,6 +45,7 @@ The files were downloaded from recount2 using the study acession id "SRP041538".
 
 ```{r, message=FALSE, warning=FALSE}
 # Importing libraries
+library(DiagrammeR)
 library(recount)
 library(DESeq2)
 library(ggplot2)
@@ -72,12 +74,12 @@ rse$condition <- sapply(strsplit(as.character(rse$title), "-"), `[`, 2)
 
 # Formatting dataset according to the specific design
 dds <- DESeqDataSet(rse, ~condition)
+dds$condition <- relevel(dds$condition, ref = "NOR")
 
 # Filtering samples
-keep <- (rowSums(counts(dds)) / ncol(dds)) >= quantile((rowSums(counts(dds)) / ncol(dds)), .2)
-dds <- dds[keep, ]
+keepers <- (rowSums(counts(dds)) / ncol(dds)) >= quantile((rowSums(counts(dds)) / ncol(dds)), .2)
+dds <- dds[keepers, ]
 
-dds$condition <- relevel(dds$condition, ref = "NOR")
 ```
 
 # RNA-Seq Analysis
@@ -87,12 +89,6 @@ dds$condition <- relevel(dds$condition, ref = "NOR")
 We'll perform the differential expression analysis using DESeq2. The referencial group is that of the individuals with normal spirometry (NOR) and the alpha error cuttoff shall be 0.05. Gene symbols are the way they'll be referred to in the next plots and are HGNC symbols whenever possible (in the absence of an equivalent HGNC symbol, the standard EnsemblID shall be used). The genes exhibited in this following table are those statiscally significant and with an absolute fold change > 2:
 
 ```{r, message=FALSE, warning=FALSE}
-
-rse$condition <- sapply(strsplit(as.character(rse$title), "-"), `[`, 2)
-
-dds <- DESeqDataSet(rse, ~condition)
-
-dds$treatment <- relevel(dds$condition, ref = "NOR")
 dds <- DESeq(dds)
 
 res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene") %>%
@@ -127,21 +123,22 @@ local_symbols <- data.frame(rowData(dds)$symbol)
 local_symbols$value[is.na(local_symbols$value)] <- ""
 gene_id_list <- NULL
 
-
-for (ref in genes) {
+gene_id_lister <- function(ref, genemap) {
   if (ref %in% genemap$ensembl_gene_id) {
     hgnc_symbol <- genemap$hgnc_symbol[genemap$ensembl_gene_id == ref][1]
     if (!hgnc_symbol == "") {
-      gene_id_list <- append(gene_id_list, hgnc_symbol)
+      return(hgnc_symbol)
     } else {
       ref <- check_local_symbol(ref, local_symbols)
-      gene_id_list <- append(gene_id_list, ref)
+      return(ref)
     }
   } else {
     ref <- check_local_symbol(ref, local_symbols)
-    gene_id_list <- append(gene_id_list, ref)
+    return(ref)
   }
 }
+
+gene_id_list <- sapply(genes, gene_id_lister, genemap)
 
 res <- res %>%
   add_column(symbol = gene_id_list) %>%
@@ -150,7 +147,6 @@ res <- res %>%
 deseq_genes <- res %>%
   as.data.frame() %>%
   filter(FDR < 0.05) %>%
-  filter(logFC >= log2(2) | logFC <= -log2(2)) %>%
   dplyr::select(EnsemblID = gene, symbol, logFC, pvalue, FDR) %>%
   arrange(FDR)
 deseq_genes_count <- nrow(deseq_genes)
@@ -271,20 +267,22 @@ pheatmap(topDE,
 ```{r, message=FALSE, warning=FALSE}
 genemap$entrezgene_id[is.null(genemap$entrezgene_id)] <- NA
 
-entrez_id_list <- NULL
-
-for (ref in genes) {
+entrez_id_lister <- function(ref, genemap) {
   if (ref %in% genemap$ensembl_gene_id) {
     entrez_id <- genemap$entrezgene_id[genemap$ensembl_gene_id == ref][1]
     if (!is.na(entrez_id)) {
-      entrez_id_list <- append(entrez_id_list, entrez_id)
+      return(entrez_id)
     } else {
-      entrez_id_list <- append(entrez_id_list, NA)
+      ref <- check_local_symbol(ref, local_symbols)
+      return(NA)
     }
   } else {
-    entrez_id_list <- append(entrez_id_list, NA)
+    ref <- check_local_symbol(ref, local_symbols)
+    return(NA)
   }
 }
+
+entrez_id_list <- sapply(genes, entrez_id_lister, genemap)
 
 res$entrez_id <- as.character(entrez_id_list)
 
@@ -306,9 +304,12 @@ plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
 )
 ```
 
-# Biological Relevance
+# Biological relevance
 
-grViz("digraph flowchart {
+COPD has two main components in its pathophysiological presentation: emphysema and chronic bronchitis. They are shown in the following flowchart:
+
+```{r, message=FALSE, warning=FALSE}
+DiagrammeR::grViz("digraph flowchart {
       # node definitions with substituted label text
       node [fontname = Helvetica, shape = rectangle]        
       tab1 [label = '@@1']
@@ -322,18 +323,21 @@ grViz("digraph flowchart {
       tab9 [label = '@@9']
       tab10 [label = '@@10']
       tab11 [label = '@@11']
-      tab12 [label = '@@12', fillcolor = red]
-      tab13 [label = '@@13', fillcolor = red]
+      tab12 [label = '@@12', style= 'filled', fillcolor = '#E9967A']
+      tab13 [label = '@@13', style= 'filled', fillcolor = '#E9967A']
+      tab14 [label = '@@14']
+      tab15 [label = '@@15']
 
       # edge definitions with the node IDs
-      tab1 -> tab2 -> tab4;
-      tab2 -> tab3 -> tab8 -> tab12;
-      tab3 -> tab9 -> tab12;
-      tab3 -> tab10 -> tab12;
-      tab1 -> tab4 -> tab5 -> tab11;
-      tab4 -> tab7 -> tab11;
-      tab1 -> tab6 -> tab11;
+      tab15 -> tab1 -> {tab2 tab4 tab6};
+      tab2 -> {tab3 tab4};
+      tab3 -> {tab8 tab9 tab10}
+      {tab8 tab9 tab10} -> tab12;
+      tab4 -> {tab5 tab7} -> tab11;
+      tab6 -> tab11;
+      tab4 -> tab3;
       tab11-> tab13;
+      tab14 -> tab2;
       }
 
       [1]: 'Inflammation'
@@ -349,31 +353,32 @@ grViz("digraph flowchart {
       [11]: 'Narrowing of small vessels'
       [12]: 'Emphysema'
       [13]: 'Chronic bronchitis'
+      [14]: 'Serpin genetic deficiencies'
+      [15]: 'Environmental expositions'
       ")
+```
 
-## Proteinase–antiproteinase imbalance
+I'll present the specific findings of the analysis in terms of how they relate to the course of development of the disease.
 
-A proteinase–antiproteinase imbalance has been the most widely accepted theory for the pathogenesis of pulmonary emphysema since the discovery of the α-1-antitrypsin deficiency [@laurell_electrophoretic_2013]. 
+## Emphysema
 
-In the GEAS plot, we can see the comparatively low enrichment in COPD patients of genes related to the maintenance of the extracellular matrix organization. This represents the smaller expression of antiproteinases and other constitutive elements that are key to the physiological maintenance of the ECM.
+Environmental exposures such as smoking, secondhand smoke exposure, air pollution and occupational exposure to other dusts, fumes and chemicals are the leading risk factors for the development of COPD [@ruvuna_epidemiology_2020]. They irritate the lungs, leading to an inflammation driven mainly by neutrophils and lymphocytes. 
 
-Meanwhile, we find that MMP1 (interstitial collagenase) is upregulated in patients with COPD. Matrix metalloproteinases (MMPs) comprise a structurally and functionally related family of proteolytic enzymes, which play an essential in ECM remodelling associated with inflammation. This corroborates its importance in airway inflammation and the development of emphysema already reported in multiple human and animal studies [@joos_role_2002].
+When recruited to the bronchioli and alveoli, neutrophils release elastases, enzymes that degrade the elastin in the alveolar walls and capillaries of the lungs. Neutrophils also produce reactive oxygen species (ROS), inflammatory mediators and cytokines that promote metalloproteinase (MMPs) activity which is associated with the destruction of the extracellular matrix (ECM) components and the aberrant remodelling of damaged alveoli while inhibiting tissue inhibitors of metalloproteinases (TIMPs) activity which is associated to the maintenance of ECM integrity. This constitutes the classic protease-antiprotease imbalance that leads to emphysema by the destruction of alveolar walls and capillaries with an enlargement of air spaces, impaired gas diffusion and air trapping on expiration [@laurell_electrophoretic_2013].
+
+The neutrophil pathologic role in COPD highly depends on the activity of the CXCL-8-CXCR1/2 axis [@ha_role_2017], which was found to be upregulated in patients with the disease. Other genes in the same axis, such as CXCL12, IL1B, RELA and EGFR are also upregulated. As for the metalloproteinases, MMP1, MMP2, MMP10, MMP19 and MMP25 were upregulated. No TIMP was found to be downregulated. On the contrary, TIMP4 was upregulated. In the GEAS plot, we can see the comparatively low enrichment in COPD patients of genes related to the maintenance of the extracellular matrix organisation. This represents the smaller expression of antiproteinases and other constitutive elements that are key to the physiological maintenance of the ECM.
+
+## Chronic bronchitis
+
+The second of the main pillars for the presentation of COPD is chronic bronchitis. The whole inflammatory environment at the lungs leads to mucus hypersecretion, ciliary dysfunction, fibrosis, thickening of the bronchiolar walls, oedema and smooth muscle contraction in the airways, producing a narrowing of the small airways that characterizes COPD’s chronic bronchitis.
+
+We can observe the increase in mucin expression in COPD patients. From the nine main human mucin genes, we find that MUC4, MUC5B and MUC5AC are upregulated. MUC5AC is the main gene previously reported as overexpressed in COPD patients’ sputum [@chadwick_mucus_2008]. 
 
 ## Mitochondrial dysfunction
 
-The GEAS analysis also demonstrates that many mitochondria-related pathways are altered, especially enriched in COPD cases.
+A less well-known dimension of the pathophysiology of COPD is its associated mitochondrial dysfunction. When faced with oxidative stress, the lung mitochondria present a decrease in membrane potential and presented abnormal expression regulation [@wiegman_oxidative_2015]. 
 
-Prohibitin (PHB-1) has an important role in mtDNA regulation by stabilizing TFAM protein, a known protein component of the mitochondrial nucleoids [@kasashima_human_2008]. In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients, a combination that can explain at least partially the mitochondrial dysfunction.
-
-## Inflammation 
-
-Airway inflammation is an important factor in the pathogenesis of COPD as a great part of the changes in the mechanical properties of the lung such as mucosal edema, increased airway secretion and airway remodelling can be attributed to this process.
-
-In this dataset, CXCR1 and CXCR2 were found to be up-regulated, which is compatible with the previous studies that affirmed those chemokine receptors were an important part of the inflammatory response in the bronchial mucosa from patients with COPD during an acute exacerbation. CXCR3 was also up-regulated, probably reflecting the intensified expression of IFN-γ in peripheral airway mucosal cells [@larsson_aspects_2007].
-
-## Susceptibility
-
-Some genes are described in the literature as being risk factors for the development of COPD. One of the main candidates is SERPINA-3, which was also found to be up-regulated in COPD patients in this analysis.
+The GEAS analysis also demonstrates that many mitochondria-related pathways are altered in COPD patients. Prohibitin (PHB-1) has an important role in mtDNA regulation by stabilizing TFAM protein, a known protein component of the mitochondrial nucleoids [@kasashima_human_2008]. In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients, a combination that can explain at least partially the mitochondrial dysfunction. This increases the inflammatory response even more.
 
 # Bibliography 
 

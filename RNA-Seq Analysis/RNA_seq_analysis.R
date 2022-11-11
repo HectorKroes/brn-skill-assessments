@@ -10,6 +10,7 @@ require(biomaRt)
 library(pheatmap)
 library(fgsea)
 library(reactome.db)
+library(DiagrammeR)
 
 study_acession <- "SRP041538"
 
@@ -24,11 +25,11 @@ rse <- scale_counts(rse_gene)
 rse$condition <- sapply(strsplit(as.character(rse$title), "-"), `[`, 2)
 
 dds <- DESeqDataSet(rse, ~condition)
-
-keep <- (rowSums(counts(dds))/ncol(dds)) >= quantile((rowSums(counts(dds))/ncol(dds)), .20)
-dds <- dds[keep,]
-
 dds$condition <- relevel(dds$condition, ref = "NOR")
+
+keepers <- (rowSums(counts(dds)) / ncol(dds)) >= quantile((rowSums(counts(dds)) / ncol(dds)), .2)
+dds <- dds[keepers, ]
+
 dds <- DESeq(dds)
 
 res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene",  pAdjustMethod = "BH") %>%
