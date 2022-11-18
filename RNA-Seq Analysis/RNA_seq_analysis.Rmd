@@ -79,14 +79,13 @@ dds$condition <- relevel(dds$condition, ref = "NOR")
 # Filtering samples
 keepers <- (rowSums(counts(dds)) / ncol(dds)) >= quantile((rowSums(counts(dds)) / ncol(dds)), .2)
 dds <- dds[keepers, ]
-
 ```
 
 # RNA-Seq Analysis
 
 ## Differential expression analysis
 
-We'll perform the differential expression analysis using DESeq2. The referencial group is that of the individuals with normal spirometry (NOR) and the alpha error cuttoff shall be 0.05. Gene symbols are the way they'll be referred to in the next plots and are HGNC symbols whenever possible (in the absence of an equivalent HGNC symbol, the standard EnsemblID shall be used). The genes exhibited in this following table are those statiscally significant and with an absolute fold change > 2:
+We'll perform the differential expression analysis using DESeq2. The referencial group is that of the individuals with normal spirometry (NOR) and the alpha error cuttoff shall be 0.05. Gene symbols are the way they'll be referred to in the next plots and are HGNC symbols whenever possible. The genes exhibited in this following table are those statistically significant and with an absolute logarithmic fold change > 1:
 
 ```{r, message=FALSE, warning=FALSE}
 dds <- DESeq(dds)
@@ -146,11 +145,10 @@ res <- res %>%
 
 deseq_genes <- res %>%
   as.data.frame() %>%
+  filter(logFC >= log2(2) | logFC <= -log2(2)) %>%
   filter(FDR < 0.05) %>%
   dplyr::select(EnsemblID = gene, symbol, logFC, pvalue, FDR) %>%
   arrange(FDR)
-deseq_genes_count <- nrow(deseq_genes)
-output_note <- paste0("\nTotal differential expressed genes with adjusted p<0.05: ", deseq_genes_count, "\n(top 1000 shown above)")
 deseq_genes %>%
   datatable()
 ```
@@ -158,23 +156,6 @@ deseq_genes %>%
 # Data Visualization
 
 ## PCA plot
-
-```{r, message=FALSE, warning=FALSE}
-tdds <- vst(dds, blind = T)
-
-pcaData <- plotPCA(tdds, intgroup = "condition", returnData = TRUE)
-
-percentVar <- round(100 * attr(pcaData, "percentVar"))
-
-ggplot(pcaData, aes(PC1, PC2, color = group)) +
-  geom_point(size = 3) +
-  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
-  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
-  coord_fixed() +
-  ggtitle("PCA plot of COPD patients x Healthy individuals")
-```
-
-## Volcano plot
 
 ```{r, message=FALSE, warning=FALSE}
 res <- res %>%
@@ -194,6 +175,28 @@ res <- res %>%
     )
   )
 
+tdds <- vst(dds, blind = T)
+
+diffexpgen <- res %>%
+  filter(Expression == "Up-regulated" | Expression == "Down-regulated")
+
+tdds <- tdds[rownames(tdds) %in% diffexpgen$gene, ]
+
+pcaData <- plotPCA(tdds, intgroup = "condition", returnData = TRUE)
+
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+
+ggplot(pcaData, aes(PC1, PC2, color = group)) +
+  geom_point(size = 3) +
+  xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+  ylab(paste0("PC2: ", percentVar[2], "% variance")) +
+  coord_fixed() +
+  ggtitle("PCA plot of COPD patients x Healthy individuals")
+```
+
+## Volcano plot
+
+```{r, message=FALSE, warning=FALSE}
 top_bottom <- function(top, res) {
   top_genes <- bind_rows(
     res %>%
@@ -311,7 +314,7 @@ COPD has two main components in its pathophysiological presentation: emphysema a
 ```{r, message=FALSE, warning=FALSE}
 DiagrammeR::grViz("digraph flowchart {
       # node definitions with substituted label text
-      node [fontname = Helvetica, shape = rectangle]        
+      node [fontname = Helvetica, shape = rectangle]
       tab1 [label = '@@1']
       tab2 [label = '@@2']
       tab3 [label = '@@3']
@@ -358,7 +361,7 @@ DiagrammeR::grViz("digraph flowchart {
       ")
 ```
 
-I'll present the specific findings of the analysis in terms of how they relate to the course of development of the disease.
+I'll present the specific findings of the analysis in terms of how they relate to the course of the development of the disease.
 
 ## Emphysema
 
@@ -366,19 +369,136 @@ Environmental exposures such as smoking, secondhand smoke exposure, air pollutio
 
 When recruited to the bronchioli and alveoli, neutrophils release elastases, enzymes that degrade the elastin in the alveolar walls and capillaries of the lungs. Neutrophils also produce reactive oxygen species (ROS), inflammatory mediators and cytokines that promote metalloproteinase (MMPs) activity which is associated with the destruction of the extracellular matrix (ECM) components and the aberrant remodelling of damaged alveoli while inhibiting tissue inhibitors of metalloproteinases (TIMPs) activity which is associated to the maintenance of ECM integrity. This constitutes the classic protease-antiprotease imbalance that leads to emphysema by the destruction of alveolar walls and capillaries with an enlargement of air spaces, impaired gas diffusion and air trapping on expiration [@laurell_electrophoretic_2013].
 
-The neutrophil pathologic role in COPD highly depends on the activity of the CXCL-8-CXCR1/2 axis [@ha_role_2017], which was found to be upregulated in patients with the disease. Other genes in the same axis, such as CXCL12, IL1B, RELA and EGFR are also upregulated. As for the metalloproteinases, MMP1, MMP2, MMP10, MMP19 and MMP25 were upregulated. No TIMP was found to be downregulated. On the contrary, TIMP4 was upregulated. In the GEAS plot, we can see the comparatively low enrichment in COPD patients of genes related to the maintenance of the extracellular matrix organisation. This represents the smaller expression of antiproteinases and other constitutive elements that are key to the physiological maintenance of the ECM.
+The neutrophil pathologic role in COPD highly depends on the activity of the CXCL-8-CXCR1/2 axis [@ha_role_2017], which was found to be upregulated in patients with the disease. Other genes in the same axis, such as CXCL12, IL1B, RELA and EGFR are also upregulated. As for the metalloproteinases, MMP1, MMP2, MMP10, MMP19 and MMP25 were upregulated. No TIMP was found to be downregulated. On the contrary, TIMP4 was upregulated.
+
+```{r, message=FALSE, warning=FALSE}
+relexp <- function(eid, res) {
+  index <- res %>%
+    filter(gene == eid) %>%
+    dplyr::select(logFC)
+  return(2**index$logFC)
+}
+
+getpvalue <- function(symb, res) {
+  padj <- res %>%
+    filter(symbol == symb) %>%
+    dplyr::select(FDR)
+  padj <- round(padj$FDR, digits = 3)
+  if (padj == 0) {
+    return("p-value\n<0.001")
+  } else {
+    return(paste0("p-value\n", padj))
+  }
+}
+
+inf_genes_symb <- c("CXCR1", "CXCR2", "CXCL12", "IL1B", "RELA", "EGFR")
+inf_genes_eid <- c("ENSG00000163464.7", "ENSG00000180871.7", "ENSG00000107562.16", "ENSG00000125538.11", "ENSG00000173039.18", "ENSG00000146648.16")
+c1 <- c(rep(inf_genes_symb, 2))
+group <- c(c(rep("NOR", length(inf_genes_symb))), c(rep("COPD", length(inf_genes_symb))))
+c3 <- c(c(rep(1, length(inf_genes_symb))), c(sapply(inf_genes_eid, relexp, res)))
+c4 <- sapply(inf_genes_symb, getpvalue, res)
+
+annot1 <-
+  tibble(
+    variable = inf_genes_symb,
+    label = c4,
+    xpos = c(1:length(inf_genes_symb)),
+    ypos = Inf,
+    vjustvar = 2
+  )
+
+df <- data.frame(c1, group, c3)
+df$group <- factor(df$group, levels = c("NOR", "COPD"))
+
+bargraph <- ggplot(data = df) +
+  geom_bar(aes(
+    x = c1,
+    y = c3,
+    fill = group,
+    color = group
+  ),
+  stat = "identity",
+  position = position_dodge()
+  ) +
+  geom_text(data = annot1, aes(label = label, x = xpos, y = ypos, vjust = vjustvar)) +
+  labs(
+    x = "Genes", y = "Relative expression",
+    title = "Relative expression of genes in CXCL-8-CXCR1/2 axis"
+  ) +
+  expand_limits(x = c(0, 0), y = c(0, 2.5))
+bargraph
+```
 
 ## Chronic bronchitis
 
 The second of the main pillars for the presentation of COPD is chronic bronchitis. The whole inflammatory environment at the lungs leads to mucus hypersecretion, ciliary dysfunction, fibrosis, thickening of the bronchiolar walls, oedema and smooth muscle contraction in the airways, producing a narrowing of the small airways that characterizes COPD’s chronic bronchitis.
 
-We can observe the increase in mucin expression in COPD patients. From the nine main human mucin genes, we find that MUC4, MUC5B and MUC5AC are upregulated. MUC5AC is the main gene previously reported as overexpressed in COPD patients’ sputum [@chadwick_mucus_2008]. 
+We can observe the increase in mucin expression in COPD patients. From the nine main human mucin genes, we find that MUC4, MUC5B and MUC5AC are upregulated. MUC5AC is the main gene previously reported overexpressed in COPD patients’ sputum [@chadwick_mucus_2008]. 
 
 ## Mitochondrial dysfunction
 
-A less well-known dimension of the pathophysiology of COPD is its associated mitochondrial dysfunction. When faced with oxidative stress, the lung mitochondria present a decrease in membrane potential and presented abnormal expression regulation [@wiegman_oxidative_2015]. 
+A less well-known dimension of the pathophysiology of COPD is its association with mitochondrial dysfunction. When faced with oxidative stress, the lung mitochondria present a decrease in membrane potential and abnormal patterns of expression regulation [@wiegman_oxidative_2015]. 
 
-The GEAS analysis also demonstrates that many mitochondria-related pathways are altered in COPD patients. Prohibitin (PHB-1) has an important role in mtDNA regulation by stabilizing TFAM protein, a known protein component of the mitochondrial nucleoids [@kasashima_human_2008]. In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients, a combination that can explain at least partially the mitochondrial dysfunction. This increases the inflammatory response even more.
+The GEAS analysis also demonstrates that many mitochondria-related pathways are altered in COPD patients. Prohibitin (PHB-1) has an important role in mtDNA regulation by stabilising TFAM protein, a known protein component of the mitochondrial nucleoids [@kasashima_human_2008]. In this analysis, PHB-1 was found to be down-regulated and TFAM up-regulated in COPD patients, a combination that can explain at least partially the mitochondrial dysfunction. This increases the inflammatory response even more.
+
+```{r, message=FALSE, warning=FALSE}
+mito_plot <- plotEnrichment(pathways[["Mitochondrial translation"]], ranked_genes) + labs(title = "Mitochondrial translation enrichment")
+
+mito_plot
+```
+
+## Serpins
+
+Serpins are a superfamily of serine protease inhibitors whose genetic deficiency can cause COPD. It usually presents differently from other causes of COPD, as it tends to promote the formation of panacinar emphysema in contrast to centrilobular and paraseptal emphysema of other aetiologies Perhaps the best-known of these deficiencies is alpha-1 antitrypsin (SERPINA1) deficiency. 
+
+In our dataset, there’s no distinction for each patient’s COPD aetiology. But after this analysis, we can verify that many representatives of the serpin superfamily are shown to be upregulated in COPD patients, which is the normal physiological reaction to inflammation [@kelly-robinson_serpin_2021], showing that probably our COPD group is mostly represented by individuals without serpin deficiencies. 
+
+```{r, message=FALSE, warning=FALSE}
+serpins <- (res %>% filter(!Significance == "Unchanged") %>% filter(grepl("SERPIN", symbol)))
+serp_genes_symb <- serpins$symbol
+serp_genes_eid <- serpins$gene
+c1 <- c(rep(serp_genes_symb, 2))
+group <- c(c(rep("NOR", nrow(serpins))), c(rep("COPD", nrow(serpins))))
+c3 <- c(c(rep(1, nrow(serpins))), c(sapply(serp_genes_eid, relexp, res)))
+c4 <- sapply(serp_genes_symb, getpvalue, res)
+
+annot <-
+  tibble(
+    variable = serp_genes_symb,
+    label = c4,
+    xpos = c(1:nrow(serpins)),
+    ypos = Inf,
+    vjustvar = 2
+  )
+
+df <- data.frame(c1, group, c3)
+df$group <- factor(df$group, levels = c("NOR", "COPD"))
+
+bargraph <- ggplot(data = df) +
+  geom_bar(aes(
+    x = c1,
+    y = c3,
+    fill = group,
+    color = group
+  ),
+  stat = "identity",
+  position = position_dodge()
+  ) +
+  geom_text(data = annot, aes(label = label, x = xpos, y = ypos, vjust = vjustvar)) +
+  labs(
+    x = "Genes", y = "Relative expression",
+    title = "Relative expression of differentially expressed serpins"
+  ) +
+  expand_limits(x = c(0, 0), y = c(0, 3))
+bargraph
+```
+
+Comparative expression profiles of COPD patients of different aetiologies could be valuable in understanding better the disease and designing specific treatments according to their specificities. 
+
+# Conclusion
+
+We can clearly see that there are marked differences in the lung tissue expression profile of patients with and without COPD. And our findings were very consistent with the data already known about the disease and further strengthens the current theories about its pathophysiology. Future studies could focus on the differences between COPD's distinct aetiologies leading to more personalized approaches to these patients' care.
+
 
 # Bibliography 
 

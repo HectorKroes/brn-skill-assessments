@@ -32,7 +32,7 @@ dds <- dds[keepers, ]
 
 dds <- DESeq(dds)
 
-res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene",  pAdjustMethod = "BH") %>%
+res <- as_tibble(results(dds, alpha = 0.05), rownames = "gene", pAdjustMethod = "BH") %>%
   rename(logFC = log2FoldChange) %>%
   rename(FDR = padj)
 
@@ -148,6 +148,11 @@ volcano_plot
 
 tdds <- vst(dds, blind = T)
 
+diffexpgen <- res %>%
+  filter(Expression == "Up-regulated" | Expression == "Down-regulated")
+
+tdds <- tdds[rownames(tdds) %in% diffexpgen$gene, ]
+
 pcaData <- plotPCA(tdds, intgroup = "condition", returnData = TRUE)
 
 percentVar <- round(100 * attr(pcaData, "percentVar"))
@@ -234,3 +239,102 @@ topPathways <- c(topPathwaysUp, rev(topPathwaysDown))
 plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
   gseaParam = 0.5
 )
+
+relexp <- function(eid, res) {
+  index <- res %>%
+    filter(gene == eid) %>%
+    dplyr::select(logFC)
+  return(2**index$logFC)
+}
+
+getpvalue <- function(symb, res) {
+  padj <- res %>%
+    filter(symbol == symb) %>%
+    dplyr::select(FDR)
+  padj <- round(padj$FDR, digits = 3)[1]
+  print(padj)
+  if (padj == 0) {
+    return("p-value\n<0.001")
+  } else {
+    return(paste0("p-value\n", padj))
+  }
+}
+
+inf_genes_symb <- c("CXCR1", "CXCR2", "CXCL12", "IL1B", "RELA", "EGFR")
+inf_genes_eid <- c("ENSG00000163464.7", "ENSG00000180871.7", "ENSG00000107562.16", "ENSG00000125538.11", "ENSG00000173039.18", "ENSG00000146648.16")
+c1 <- c(rep(inf_genes_symb, 2))
+c2 <- c(c(rep("NOR", length(inf_genes_symb))), c(rep("COPD", length(inf_genes_symb))))
+c3 <- c(c(rep(1, length(inf_genes_symb))), c(sapply(inf_genes_eid, relexp, res)))
+c4 <- sapply(inf_genes_symb, getpvalue, res)
+
+annot1 <-
+  tibble(
+    variable = inf_genes_symb,
+    label = c4,
+    xpos = c(1:length(inf_genes_symb)),
+    ypos = Inf,
+    vjustvar = 2
+  )
+
+df <- data.frame(c1, c2, c3)
+df$c2 <- factor(df$c2, levels = c("NOR", "COPD"))
+
+bargraph <- ggplot(data = df) +
+  geom_bar(aes(
+    x = c1,
+    y = c3,
+    fill = c2,
+    color = c2
+  ),
+  stat = "identity",
+  position = position_dodge()
+  ) +
+  geom_text(data = annot1, aes(label = label, x = xpos, y = ypos, vjust = vjustvar)) +
+  labs(
+    x = "Genes", y = "Relative expression",
+    title = "Relative expression of genes in CXCL-8-CXCR1/2 axis"
+  ) +
+  expand_limits(x = c(0, 0), y = c(0, 2.5))
+bargraph
+
+serpins <- (res %>% filter(FDR < 0.05) %>% filter(grepl("SERPIN", symbol)))
+serp_genes_symb <- serpins$symbol
+serp_genes_eid <- serpins$gene
+c1 <- c(rep(serp_genes_symb, 2))
+c2 <- c(c(rep("NOR", nrow(serpins))), c(rep("COPD", nrow(serpins))))
+c3 <- c(c(rep(1, nrow(serpins))), c(sapply(serp_genes_eid, relexp, res)))
+c4 <- sapply(serp_genes_symb, getpvalue, res)
+
+annot <-
+  tibble(
+    variable = serp_genes_symb,
+    label = c4,
+    xpos = c(1:nrow(serpins)),
+    ypos = Inf,
+    vjustvar = 2
+  )
+
+df <- data.frame(c1, c2, c3)
+df$c2 <- factor(df$c2, levels = c("NOR", "COPD"))
+
+bargraph <- ggplot(data = df) +
+  geom_bar(aes(
+    x = c1,
+    y = c3,
+    fill = c2,
+    color = c2
+  ),
+  stat = "identity",
+  position = position_dodge()
+  ) +
+  geom_text(data = annot, aes(label = label, x = xpos, y = ypos, vjust = vjustvar)) +
+  labs(
+    x = "Genes", y = "Relative expression",
+    title = "Relative expression of genes in CXCL-8-CXCR1/2 axis"
+  ) +
+  expand_limits(x = c(0, 0), y = c(0, 2.5))
+bargraph
+
+mito_plot <- plotEnrichment(pathways[["Mitochondrial translation"]], ranked_genes) + labs(title = "Mitochondrial translation enrichment")
+
+mito_plot
