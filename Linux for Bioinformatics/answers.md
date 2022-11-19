@@ -2,13 +2,34 @@ Part 1
 
 Q1. What is your home directory?
 
+A: /home/ubuntu
+
 Q2. What is the output of this command?
+
+A:
+
+ubuntu@ip-172-31-87-211:~/my_folder$ ls
+hello_world.txt
 
 Q3. What is the output of each ls command?
 
+A:
+
+ubuntu@ip-172-31-87-211:~/my_folder$ ls
+ubuntu@ip-172-31-87-211:~/my_folder2$ ls
+hello_world.txt
+
 Q4. What is the output of each?
 
+A:
+ubuntu@ip-172-31-87-211:~/my_folder$ ls
+ubuntu@ip-172-31-87-211:~/my_folder2$ ls
+ubuntu@ip-172-31-87-211:~/my_folder3$ ls
+hello_world.txt
+
 Q5. What editor did you use and what was the command to save your file changes?
+
+A: I used nano. Ctrl+X saves and closes the file being edited.
 
 Q6. What is the error?
 
