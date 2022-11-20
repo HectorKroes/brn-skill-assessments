@@ -1,4 +1,4 @@
-# Linux for bioinformatics task report
+# Linux for bioinformatics task report - Hector Kroes
 
 ## Part 1
 
@@ -99,7 +99,7 @@ A:
 conda 22.9.0
 ```
 
-**Q12. What is the output of which python?**
+**Q12. What is the output of which python when inside py27?**
 
 A:
 ```bash
@@ -107,7 +107,7 @@ A:
 /home/serveruser/mambaforge/envs/py27/bin/python
 ```
 
-**Q13. What is the output of which python now?**
+**Q13. And what is the output of which python in the (base) environment?**
 
 A:
 ```bash
@@ -149,12 +149,12 @@ A `.gz` file is an archive file compressed by the standard GNU zip (gzip) compre
 A:
 The `zcat` command lets you view contents of a compressed file.
 
-**Q18. what does the head command do?**
+**Q18. What does the head command do?**
 
 A:
 The `head` command prints the top N lines of data of the given input.
 
-**Q19. what does the number 100 signify in the command?**
+**Q19. What does the number 100 signify in the command?**
 
 A:
 100 is the amount of data lines the `head` command will print from the file.
@@ -171,7 +171,7 @@ A:
 
 ## Part 2
 
-**Q22. What format are the downloaded sequencing reads in?**
+**Q22. Download the RNA-Seq sample "SRR074122" using prefetch. What format are the downloaded sequencing reads in?**
 
 A:
 The sequencing reads are downloaded in the `.sra` format.
@@ -186,7 +186,7 @@ The total space in `/dev/root` is 7.6 Gb.
 A:
 The remaining space in `/dev/root` at this moment is 1.3 Gb.
 
-**Q25. What went wrong?**
+**Q25. Convert the reads to fastq format using this command: fastq-dump SRR074122. What went wrong?**
 
 A:
 There's no sufficient space in disk to conclude the operation:
