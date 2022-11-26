@@ -9,8 +9,11 @@ output:
     toc: true
     toc_float: true
     number_sections: true
+    link-citations: true
     code_folding: hide
 bibliography: bibliography.bib
+link-citations: true
+csl: citation_style.csl
 
 ---
 
@@ -312,6 +315,19 @@ plotGseaTable(pathways[topPathways], ranked_genes, fgseaRes,
 COPD has two main components in its pathophysiological presentation: emphysema and chronic bronchitis. They are shown in the following flowchart:
 
 ```{r, message=FALSE, warning=FALSE}
+
+inf_genes_symb <- c("CXCR1", "CXCR2", "CXCL12", "IL1B", "RELA", "EGFR")
+inf_genes_eid <- c("ENSG00000163464.7", "ENSG00000180871.7", "ENSG00000107562.16", "ENSG00000125538.11", "ENSG00000173039.18", "ENSG00000146648.16")
+cit <- inf_genes_symb[3:6]
+
+mmps <- (res %>% filter(FDR <= 0.05) %>% filter(logFC > 0) %>% filter(grepl("^MMP", symbol)))$symbol
+
+mucs <- (res %>% filter(FDR <= 0.05) %>% filter(logFC > 1) %>% filter(grepl("MUC", symbol)))$symbol
+
+serpins <- (res %>% filter(!Significance == "Unchanged") %>% filter(grepl("SERPIN", symbol)))
+serp_genes_symb <- serpins$symbol
+serp_genes_eid <- serpins$gene
+
 DiagrammeR::grViz("digraph flowchart {
       # node definitions with substituted label text
       node [fontname = Helvetica, shape = rectangle]
@@ -369,7 +385,7 @@ Environmental exposures such as smoking, secondhand smoke exposure, air pollutio
 
 When recruited to the bronchioli and alveoli, neutrophils release elastases, enzymes that degrade the elastin in the alveolar walls and capillaries of the lungs. Neutrophils also produce reactive oxygen species (ROS), inflammatory mediators and cytokines that promote metalloproteinase (MMPs) activity which is associated with the destruction of the extracellular matrix (ECM) components and the aberrant remodelling of damaged alveoli while inhibiting tissue inhibitors of metalloproteinases (TIMPs) activity which is associated to the maintenance of ECM integrity. This constitutes the classic protease-antiprotease imbalance that leads to emphysema by the destruction of alveolar walls and capillaries with an enlargement of air spaces, impaired gas diffusion and air trapping on expiration [@laurell_electrophoretic_2013].
 
-The neutrophil pathologic role in COPD highly depends on the activity of the CXCL-8-CXCR1/2 axis [@ha_role_2017], which was found to be upregulated in patients with the disease. Other genes in the same axis, such as CXCL12, IL1B, RELA and EGFR are also upregulated. As for the metalloproteinases, MMP1, MMP2, MMP10, MMP19 and MMP25 were upregulated. No TIMP was found to be downregulated. On the contrary, TIMP4 was upregulated.
+The neutrophil pathologic role in COPD highly depends on the activity of the CXCL-8-CXCR1/2 axis [@ha_role_2017], which was found to be upregulated in patients with the disease. Other genes in the same axis, such as `r cit` are also upregulated. As for the metalloproteinases, we found that several of them (`r mmps`) were upregulated. No TIMP was found to be downregulated.
 
 ```{r, message=FALSE, warning=FALSE}
 relexp <- function(eid, res) {
@@ -391,8 +407,6 @@ getpvalue <- function(symb, res) {
   }
 }
 
-inf_genes_symb <- c("CXCR1", "CXCR2", "CXCL12", "IL1B", "RELA", "EGFR")
-inf_genes_eid <- c("ENSG00000163464.7", "ENSG00000180871.7", "ENSG00000107562.16", "ENSG00000125538.11", "ENSG00000173039.18", "ENSG00000146648.16")
 c1 <- c(rep(inf_genes_symb, 2))
 group <- c(c(rep("NOR", length(inf_genes_symb))), c(rep("COPD", length(inf_genes_symb))))
 c3 <- c(c(rep(1, length(inf_genes_symb))), c(sapply(inf_genes_eid, relexp, res)))
@@ -433,7 +447,7 @@ bargraph
 
 The second of the main pillars for the presentation of COPD is chronic bronchitis. The whole inflammatory environment at the lungs leads to mucus hypersecretion, ciliary dysfunction, fibrosis, thickening of the bronchiolar walls, oedema and smooth muscle contraction in the airways, producing a narrowing of the small airways that characterizes COPD’s chronic bronchitis.
 
-We can observe the increase in mucin expression in COPD patients. From the nine main human mucin genes, we find that MUC4, MUC5B and MUC5AC are upregulated. MUC5AC is the main gene previously reported overexpressed in COPD patients’ sputum [@chadwick_mucus_2008]. 
+We can observe the increase in mucin expression in COPD patients. From the nine main human mucin genes, we find that three of them (`r mucs`) are upregulated. MUC5AC is the main gene previously reported overexpressed in COPD patients’ sputum [@chadwick_mucus_2008]. 
 
 ## Mitochondrial dysfunction
 
@@ -451,12 +465,9 @@ mito_plot
 
 Serpins are a superfamily of serine protease inhibitors whose genetic deficiency can cause COPD. It usually presents differently from other causes of COPD, as it tends to promote the formation of panacinar emphysema in contrast to centrilobular and paraseptal emphysema of other aetiologies Perhaps the best-known of these deficiencies is alpha-1 antitrypsin (SERPINA1) deficiency. 
 
-In our dataset, there’s no distinction for each patient’s COPD aetiology. But after this analysis, we can verify that many representatives of the serpin superfamily are shown to be upregulated in COPD patients, which is the normal physiological reaction to inflammation [@kelly-robinson_serpin_2021], showing that probably our COPD group is mostly represented by individuals without serpin deficiencies. 
+In our dataset, there’s no distinction for each patient’s COPD aetiology. But after this analysis, we can verify that many representatives of the serpin superfamily are shown to be upregulated in COPD patients (`r serp_genes_symb`), which is the normal physiological reaction to inflammation [@kelly-robinson_serpin_2021], showing that probably our COPD group is mostly represented by individuals without serpin deficiencies. 
 
 ```{r, message=FALSE, warning=FALSE}
-serpins <- (res %>% filter(!Significance == "Unchanged") %>% filter(grepl("SERPIN", symbol)))
-serp_genes_symb <- serpins$symbol
-serp_genes_eid <- serpins$gene
 c1 <- c(rep(serp_genes_symb, 2))
 group <- c(c(rep("NOR", nrow(serpins))), c(rep("COPD", nrow(serpins))))
 c3 <- c(c(rep(1, nrow(serpins))), c(sapply(serp_genes_eid, relexp, res)))
