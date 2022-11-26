@@ -6,7 +6,7 @@ Commit reviewed: [ba4d2518076bbeb60b15b51327c25b9e402cf7b7](https://github.com/H
 
 >1. The error doesn't display immediately after the user types an invalid row or column. Instead, it takes all the inputs and then returns an error. It'd be more useful if the game checks the validity of the user's input immediately.
 
-Change implemented! Now the program will inform immediately after each input if it wasn't valid and prompt the user for a valid input again. This was done by the fragmentation of the old determine_placement function and consequent creation of the coord_prompter function, which prompts and verifies the coordinates individually and returns a value only when the input was a valid coordinate.
+Change implemented! Now the program will inform immediately after each input if it wasn't valid and prompt the user for a valid input again. This was done by the fragmentation of the old determine_placement function and the consequent creation of the coord_prompter function, which prompts and verifies the coordinates individually and returns a value only when the input was a valid coordinate.
 
 >2. The waiting time for the board is a little bit longer, it can be optimized by reducing the amount of ```Sys.sleep(1) ``` arguments.
 
@@ -27,7 +27,7 @@ Thank you for playing! Until next time!Warning messages:
 2: In player_move(board, player_symbol) : NAs introduced by coercion
 ```
 
-Upon a closer inspection, it seems that this warning message occurs when you use as.numeric() trying to convert a vector containing non-numeric values to a numeric vector. In the old player_move function there are two lines which take the user input to determine the coordinates of their move. If the input was blank, the program would prompt the user to input other value, but not before using the as.numeric() with an NA value as argument, raising a warning. To avoid this, I changed the player_move and is_coord_valid functions to only transform the input to integer after it is verified as a valid input ('1', '2' or '3'), so it shouldn't raise warnings anymore. Other solution I initially considered was to use suppressWarnings() to bypass the warning, but this is not an ideal solution as it's not usually good practice to suppress meritous warnings.
+Upon a closer inspection, it seems that this warning message occurs when you use as.numeric() trying to convert a vector containing non-numeric values to a numeric vector. In the old player_move function there are two lines which take the user input to determine the coordinates of their move. If the input was blank, the program would prompt the user to input another value, but not before using the as.numeric() with an NA value as an argument, raising a warning. To avoid this, I changed the player_move and is_coord_valid functions to only transform the input to an integer after it is verified as a valid input ('1', '2' or '3'), so it shouldn't raise warnings anymore. Other solution I initially considered was to use suppressWarnings() to bypass the warning, but this is not an ideal solution as it's not usually good practice to suppress meritous warnings.
 
 >4. ``` Thank you for playing! Until next time!``` argument is a good example for user friendly software! Thank you.
 
@@ -37,7 +37,7 @@ Friendliness was what I aimed at. I'm glad it showed.
 
 >1. It's usually recommended to use *for loops* instead of ```repeat - break``` structures. Because ```repeat - break``` can act outer than desired in some cases. For a more detailed explanation, please [see.](https://stackoverflow.com/questions/3922599/is-it-a-bad-practice-to-use-break-in-a-for-loop)
 
-While it may be generally recommended the use of for loops over repeat-break structures, in this situation for loops are not really a good alternative as repetition may be needed indefinitely until the player make a correct input. So to avoid the use of repeat-break, I substituted all repeats and whiles for self-calling functions.
+While it may be generally recommended the use of for loops over repeat-break structures, in this situation for loops are not really a good alternative as repetition may be needed indefinitely until the player makes a correct input. So to avoid the use of repeat-break, I substituted all repeats and whiles for self-calling functions.
 
 >2. ```message("input")``` can also be used instead of ```cat("input")```.
 
