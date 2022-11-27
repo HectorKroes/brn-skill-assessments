@@ -16,22 +16,28 @@ output:
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+# The Dataset
 
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+## Characterization
 
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+### Sample 1
 
-```{r cars}
-summary(cars)
-```
+- Summary: Homo sapiens male child (3 years) heart left ventricle tissue
+- Health Status: Healthy
+- Biossample: 	ENCBS663RCE
+- Experiment: ENCSR230VEM
+- File: ENCFF769TKN
+- Target: H3K4me1
 
-## Including Plots
+### Sample 2
 
-You can also embed plots, for example:
+- Summary: Homo sapiens male adult (61 years) heart left ventricle tissue
+- Health Status: Nonischemic (EF 11% LVEDD 7.7; RV severe dilation, severe dysfunction)
+- Biossample: ENCBS700NCU
+- Experiment: ENCSR130XNJ
+- File: ENCFF213YBO
+- Target: H3K4me1
 
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
+## Heart Left Ventricle
 
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+## H3H4me1
